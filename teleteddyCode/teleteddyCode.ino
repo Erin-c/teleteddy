@@ -7,8 +7,14 @@
 // for debugging
 #define DEBUG           1
 
-// touch sensor threshold (how sensitive the touch is)
-#define TOUCH_SENSITIVITY 512
+// activate accelerometer
+#define ACC_ENABLE      1
+
+// activate speaker
+#define SPEAKER_ENABLE    1
+
+// define heartbeat delay interval (reduce to make it quicker)
+#define HEARTBEAT_DELAY 10
 
 // neopixel definitions
 #define PIN             6
@@ -20,7 +26,7 @@
 #define FSR_LEFT_FOOT   A2
 #define FSR_RIGHT_FOOT  A1
 #define FSR_LEFT_EAR    4
-#define FSR_RIGHT_EAR   3
+#define FSR_RIGHT_EAR   7
 //#define FSR_TAG         5
 
 // bit map for fsr readings
@@ -41,8 +47,10 @@
 #define RIGHT_EAR_LED   8
 #define LEFT_EAR_LED    9
 
+#define SPEAKER_PIN     11
+
 // acceleromter interrupt pin (set to 1 if the bear is picked up)
-const byte accIntPin = 13;
+const byte accIntPin = 3;
 
 
 // track if in two player mode
@@ -60,8 +68,9 @@ bool picked_up      = false;
 
 
 Adafruit_NeoPixel pixels = Adafruit_NeoPixel(NUMPIXELS, PIN, NEO_GRB + NEO_KHZ800);
-//Adafruit_MMA8451 mma = Adafruit_MMA8451();
-
+#ifdef ACC_ENABLE
+Adafruit_MMA8451 mma = Adafruit_MMA8451();
+#endif
 /******************************************************************/
 /************************ SETUP ***********************************/
 /******************************************************************/
@@ -72,6 +81,10 @@ void setup() {
 
   //setup pins
   pinSetup();
+
+  // set speaker pin to output
+  pinMode(SPEAKER_PIN, INPUT_PULLUP);
+
   
 //  // XBee setup
 //  XBee.begin(9600);
@@ -80,32 +93,48 @@ void setup() {
   pixels.begin(); // This initializes the NeoPixel library.
 
   // accelerometer interupt setup
-//  pinMode(accIntPin, INPUT_PULLUP);
-//  attachInterrupt(digitalPinToInterrupt(accIntPin), bearPickedUp, HIGH);
+#ifdef ACC_ENABLE
+  pinMode(accIntPin, INPUT);
+  attachInterrupt(digitalPinToInterrupt(accIntPin), bearPickedUp, RISING);
+  
+  // throw error if accelerometer not working
+  if (! mma.begin()) {
+    Serial.println("Couldnt start");
+    while (1);
+  }
 
-//  // setup accelerometer
-//  mma.setRange(MMA8451_RANGE_2_G);
+  // setup accelerometer
+  mma.setRange(MMA8451_RANGE_2_G);
+  
+  // enable accelerometer interrupt
+  mma.writeRegister8(MMA8451_REG_CTRL_REG1, 0x00);            // deactivate
+  mma.writeRegister8(0X2A, 0x18);
+  mma.writeRegister8(0x15, 0x78 );
+  mma.writeRegister8(0x17, 0x30 ); //SET THRESHOLD TO 48 COUNTS
+  mma.writeRegister8(0x18, 0x0A ); // 100ms debounce timing
+  mma.writeRegister8(0x2C, 0x02 | 0x01);
+  mma.writeRegister8(MMA8451_REG_CTRL_REG4, 0x04 | 0x20);
+  mma.writeRegister8(MMA8451_REG_CTRL_REG5, 0x04 | 0x20);
+  mma.writeRegister8(MMA8451_REG_CTRL_REG1, 0x01 | 0x04);     // activate (hard coded)
+  
+#endif
 
   // function to call when want to do one cycle of the heartbeat
-  heartbeatTouchableLights();
+  //heartbeatTouchableLights();
 }
 
 /******************************************************************/
 /************************ LOOP ************************************/
 /******************************************************************/
 void loop() {
-
-  
   // check all touch sensors and update touch sensor variable
   updateTouchMap();
 //  // send info on what is being touched on this bear
 //  sendTouchMap();
 //
-//  if(isBearPickedUp()){
-//    #ifdef DEBUG 
-//      Serial.println("Bear is picked up");
-//    #endif
-//  }
+  if(isBearPickedUp()){
+
+  }
   turnOnTouched();
   turnOffNotTouched();
 }
@@ -247,11 +276,11 @@ void heartbeatTouchableLights(){
     setLight(RIGHT_HAND_LED,  t, 0, 0);
     setLight(RIGHT_EAR_LED,   t, 0, 0);
     setLight(LEFT_EAR_LED,    t, 0, 0);
-    delay(100);
+    delay(HEARTBEAT_DELAY);
     
     #ifdef DEBUG 
     Serial.println(t);
-    Serial.println("goung up");
+    Serial.println("going up");
     #endif
   }
   for(int16_t t = 255; t >= 0; t-=5){
@@ -262,11 +291,11 @@ void heartbeatTouchableLights(){
     setLight(RIGHT_HAND_LED,  t, 0, 0);
     setLight(RIGHT_EAR_LED,   t, 0, 0);
     setLight(LEFT_EAR_LED,    t, 0, 0);
-    delay(100);
+    delay(HEARTBEAT_DELAY);
 
     #ifdef DEBUG
     Serial.println(t);
-    Serial.println("goung down");
+    Serial.println("going down");
     #endif
   }
 }
@@ -293,14 +322,27 @@ void playInitTune(void) {
 void bearPickedUp(){
   // disable interrupt to avoid constantly activating
   detachInterrupt(digitalPinToInterrupt(accIntPin));
-  picked_up = true;
+  
+  if(picked_up != true){
+    picked_up = true;
+  }
+  
+  #ifdef DEBUG 
+  Serial.println("interrupt!");
+  #endif
+  
 }
 
 bool isBearPickedUp(){
   if(picked_up){
     // reenable interrupt
-    attachInterrupt(digitalPinToInterrupt(accIntPin), bearPickedUp, CHANGE);
     picked_up = false;
+
+    #ifdef DEBUG 
+    Serial.println("Bear is picked up");
+    #endif
+    
+    attachInterrupt(digitalPinToInterrupt(accIntPin), bearPickedUp, RISING);
     return true;
   }
   else return false;
@@ -338,4 +380,26 @@ void turnOffNotTouched(void){
   if( (my_touch_map & MAP_LEFT_EAR) != MAP_LEFT_EAR){
     turnOff(LEFT_EAR_LED);
   }
+}
+
+uint8_t readReg(uint8_t reg){
+    Wire.beginTransmission(MMA8451_DEFAULT_ADDRESS);
+    #if ARDUINO >= 100
+     Wire.write((uint8_t)reg);
+    #else
+    Wire.send(reg);
+     #endif
+    Wire.endTransmission(false); // MMA8451 + friends uses repeated start!!
+    Wire.requestFrom(MMA8451_DEFAULT_ADDRESS, 1);
+    
+    if (! Wire.available()) return -1;
+    return (i2cread());
+}
+
+static inline uint8_t i2cread(void) {
+  #if ARDUINO >= 100
+  return Wire.read();
+  #else
+  return Wire.receive();
+  #endif
 }
