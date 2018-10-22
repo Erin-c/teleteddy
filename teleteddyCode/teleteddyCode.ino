@@ -54,14 +54,14 @@ const byte accIntPin = 3;
 
 
 // track if in two player mode
-bool twoPlayerMode  = false;
+volatile bool twoPlayerMode  = false;
 
 // keep track of which sensor is registering a touch
-uint16_t my_touch_map   = 0;
-uint16_t your_touch_map = 0;
+volatile uint16_t my_touch_map   = 0;
+volatile uint16_t your_touch_map = 0;
 
 // tracking variable to determine if bear is picked up
-bool picked_up      = false;
+volatile bool picked_up      = false;
 
 // XBee setup
 //SoftwareSerial XBee(2, 3); // RX, TX
