@@ -4,11 +4,20 @@
 #include <Adafruit_Sensor.h>
 #include <Wire.h>
 
-// for debugging
-#define DEBUG           1
+// for debugging`
+//#define DEBUG           1
 
-// touch sensor threshold (how sensitive the touch is)
-#define TOUCH_SENSITIVITY 512
+// activate XBEE
+#define XBEE_ACTIVE     1
+
+// activate accelerometer
+//#define ACC_ENABLE      1
+
+// activate speaker
+#define SPEAKER_ENABLE  1
+
+// define heartbeat delay interval (reduce to make it quicker)
+#define HEARTBEAT_DELAY 10
 
 // neopixel definitions
 #define PIN             6
@@ -20,7 +29,7 @@
 #define FSR_LEFT_FOOT   A2
 #define FSR_RIGHT_FOOT  A1
 #define FSR_LEFT_EAR    4
-#define FSR_RIGHT_EAR   3
+#define FSR_RIGHT_EAR   7
 //#define FSR_TAG         5
 
 // bit map for fsr readings
@@ -41,27 +50,47 @@
 #define RIGHT_EAR_LED   8
 #define LEFT_EAR_LED    9
 
+#define SPEAKER_PIN     11
+
+// my bear's color when I press bear
+#define MY_COLOR_R      255
+#define MY_COLOR_G      0
+#define MY_COLOR_B      0
+
+// my bear's color when you press bear
+#define YOUR_COLOR_R      0
+#define YOUR_COLOR_G      0
+#define YOUR_COLOR_B      255
+
 // acceleromter interrupt pin (set to 1 if the bear is picked up)
-const byte accIntPin = 13;
+const byte accIntPin = 3;
 
 
 // track if in two player mode
 bool twoPlayerMode  = false;
 
 // keep track of which sensor is registering a touch
-uint16_t my_touch_map   = 0;
-uint16_t your_touch_map = 0;
+byte my_touch_map   = 0;
+byte your_touch_map = 0;
+
+// keep track of what is sent
+byte sent_touch_map   = 0;
 
 // tracking variable to determine if bear is picked up
-bool picked_up      = false;
+volatile bool picked_up      = false;
+
+// variable that gets updated with current pixel values
+uint8_t u8R, u8G, u8B;
 
 // XBee setup
-//SoftwareSerial XBee(2, 3); // RX, TX
-
+//#ifdef XBEE_ACTIVE
+//SoftwareSerial XBee(0, 1); // RX, TX
+//#endif
 
 Adafruit_NeoPixel pixels = Adafruit_NeoPixel(NUMPIXELS, PIN, NEO_GRB + NEO_KHZ800);
-//Adafruit_MMA8451 mma = Adafruit_MMA8451();
-
+#ifdef ACC_ENABLE
+Adafruit_MMA8451 mma = Adafruit_MMA8451();
+#endif
 /******************************************************************/
 /************************ SETUP ***********************************/
 /******************************************************************/
@@ -72,19 +101,45 @@ void setup() {
 
   //setup pins
   pinSetup();
+
+  // set speaker pin to output
+  pinMode(SPEAKER_PIN, INPUT_PULLUP);
+
   
 //  // XBee setup
+//#ifdef XBEE_ACTIVE
 //  XBee.begin(9600);
+//#endif
 
   // start neo pixels
   pixels.begin(); // This initializes the NeoPixel library.
 
   // accelerometer interupt setup
-//  pinMode(accIntPin, INPUT_PULLUP);
-//  attachInterrupt(digitalPinToInterrupt(accIntPin), bearPickedUp, HIGH);
+#ifdef ACC_ENABLE
+  pinMode(accIntPin, INPUT);
+  attachInterrupt(digitalPinToInterrupt(accIntPin), bearPickedUp, RISING);
+  
+  // throw error if accelerometer not working
+  if (! mma.begin()) {
+    //Serial.println("Couldnt start");
+    while (1);
+  }
 
-//  // setup accelerometer
-//  mma.setRange(MMA8451_RANGE_2_G);
+  // setup accelerometer
+  mma.setRange(MMA8451_RANGE_2_G);
+  
+  // enable accelerometer interrupt
+  mma.writeRegister8(MMA8451_REG_CTRL_REG1, 0x00);            // deactivate
+  mma.writeRegister8(0X2A, 0x18);
+  mma.writeRegister8(0x15, 0x78 );
+  mma.writeRegister8(0x17, 0x30 ); //SET THRESHOLD TO 48 COUNTS
+  mma.writeRegister8(0x18, 0x0A ); // 100ms debounce timing
+  mma.writeRegister8(0x2C, 0x02 | 0x01);
+  mma.writeRegister8(MMA8451_REG_CTRL_REG4, 0x04 | 0x20);
+  mma.writeRegister8(MMA8451_REG_CTRL_REG5, 0x04 | 0x20);
+  mma.writeRegister8(MMA8451_REG_CTRL_REG1, 0x01 | 0x04);     // activate (hard coded)
+  
+#endif
 
   // function to call when want to do one cycle of the heartbeat
   heartbeatTouchableLights();
@@ -94,20 +149,29 @@ void setup() {
 /************************ LOOP ************************************/
 /******************************************************************/
 void loop() {
-
-  
   // check all touch sensors and update touch sensor variable
   updateTouchMap();
-//  // send info on what is being touched on this bear
-//  sendTouchMap();
-//
-//  if(isBearPickedUp()){
-//    #ifdef DEBUG 
-//      Serial.println("Bear is picked up");
-//    #endif
-//  }
-  turnOnTouched();
-  turnOffNotTouched();
+  // send info on what is being touched on this bear
+  sendTouchMap();
+  
+  if(receivedTouch()){
+    //turn on LEDs that are touched by you
+    turnOnYourTouched(your_touch_map);
+
+    //turn off LEDs that you let go
+    turnOffYourNotTouched(your_touch_map);
+  }
+
+  // has my bear been lifted
+  if(isBearPickedUp()){
+
+  }
+
+  // turn on LEDs that have been touched on my bear
+  turnOnMyTouched(my_touch_map);
+
+  // turn off LEDs that are not touched by my bear
+  turnOffMyNotTouched(my_touch_map);
 }
 
 /******************************************************************/
@@ -115,7 +179,7 @@ void loop() {
 /******************************************************************/
 
 void updateTouchMap(void) {
-  my_touch_map = 0;
+  my_touch_map = 0x00;
   if(digitalRead(FSR_LEFT_HAND) == LOW) {
     my_touch_map |= MAP_LEFT_HAND;
     
@@ -175,36 +239,127 @@ void updateTouchMap(void) {
 #endif
 }
 
-void turnOnTouched(void){
-  if( (my_touch_map & MAP_LEFT_HAND) == MAP_LEFT_HAND){
-    turnOn(LEFT_HAND_LED);
+
+// send map to this function to turn on anything that is being touched
+void turnOnMyTouched(uint16_t touch_map){
+  if( (touch_map & MAP_LEFT_HAND) == MAP_LEFT_HAND){
+    getCurrentPixel(LEFT_HAND_LED);
+    setLight(LEFT_HAND_LED, MY_COLOR_R, u8G, u8B);
   }
-  if( (my_touch_map & MAP_LEFT_FOOT) == MAP_LEFT_FOOT){
-    turnOn(LEFT_FOOT_LED);
+  if( (touch_map & MAP_LEFT_FOOT) == MAP_LEFT_FOOT){
+    getCurrentPixel(LEFT_FOOT_LED);
+    setLight(LEFT_FOOT_LED, MY_COLOR_R, u8G, u8B);
   }
-  if( (my_touch_map & MAP_RIGHT_FOOT) == MAP_RIGHT_FOOT){
-    turnOn(RIGHT_FOOT_LED);
+  if( (touch_map & MAP_RIGHT_FOOT) == MAP_RIGHT_FOOT){
+    getCurrentPixel(RIGHT_FOOT_LED);
+    setLight(RIGHT_FOOT_LED, MY_COLOR_R, u8G, u8B);
   }
-  if( (my_touch_map & MAP_RIGHT_HAND) == MAP_RIGHT_HAND){
-    turnOn(RIGHT_HAND_LED);
+  if( (touch_map & MAP_RIGHT_HAND) == MAP_RIGHT_HAND){
+    getCurrentPixel(RIGHT_HAND_LED);
+    setLight(RIGHT_HAND_LED, MY_COLOR_R, u8G, u8B);
   }
-  if( (my_touch_map & MAP_RIGHT_EAR) == MAP_RIGHT_EAR){
-    turnOn(RIGHT_EAR_LED);
+  if( (touch_map & MAP_RIGHT_EAR) == MAP_RIGHT_EAR){
+    getCurrentPixel(RIGHT_EAR_LED);
+    setLight(RIGHT_EAR_LED, MY_COLOR_R, u8G, u8B);
   }
-  if( (my_touch_map & MAP_LEFT_EAR) == MAP_LEFT_EAR){
-    turnOn(LEFT_EAR_LED);
+  if( (touch_map & MAP_LEFT_EAR) == MAP_LEFT_EAR){
+    getCurrentPixel(LEFT_EAR_LED);
+    setLight(LEFT_EAR_LED, MY_COLOR_R, u8G, u8B);
+  }
+}
+
+void turnOnYourTouched(byte touch_map){
+  if( (touch_map & MAP_LEFT_HAND) == MAP_LEFT_HAND){
+    getCurrentPixel(LEFT_HAND_LED);
+    setLight(LEFT_HAND_LED, u8R, YOUR_COLOR_G, YOUR_COLOR_B);
+  }
+  if( (touch_map & MAP_LEFT_FOOT) == MAP_LEFT_FOOT){
+    getCurrentPixel(LEFT_FOOT_LED);
+    setLight(LEFT_FOOT_LED, u8R, YOUR_COLOR_G, YOUR_COLOR_B);
+  }
+  if( (touch_map & MAP_RIGHT_FOOT) == MAP_RIGHT_FOOT){
+    getCurrentPixel(RIGHT_FOOT_LED);
+    setLight(RIGHT_FOOT_LED, u8R, YOUR_COLOR_G, YOUR_COLOR_B);
+  }
+  if( (touch_map & MAP_RIGHT_HAND) == MAP_RIGHT_HAND){
+    getCurrentPixel(RIGHT_HAND_LED);
+    setLight(RIGHT_HAND_LED, u8R, YOUR_COLOR_G, YOUR_COLOR_B);
+  }
+  if( (touch_map & MAP_RIGHT_EAR) == MAP_RIGHT_EAR){
+    getCurrentPixel(RIGHT_EAR_LED);
+    setLight(RIGHT_EAR_LED, u8R, YOUR_COLOR_G, YOUR_COLOR_B);
+  }
+  if( (touch_map & MAP_LEFT_EAR) == MAP_LEFT_EAR){
+    getCurrentPixel(LEFT_EAR_LED);
+    setLight(LEFT_EAR_LED, u8R, YOUR_COLOR_G, YOUR_COLOR_B);
+  }
+}
+
+// send map to this function to turn off anything that is being touched
+void turnOffMyNotTouched(byte touch_map){
+  if( (touch_map & MAP_LEFT_HAND) != MAP_LEFT_HAND){
+    getCurrentPixel(LEFT_HAND_LED);
+    setLight(LEFT_HAND_LED, 0, u8G, u8B);
+  }
+  if( (touch_map & MAP_LEFT_FOOT) != MAP_LEFT_FOOT){
+    getCurrentPixel(LEFT_FOOT_LED);
+    setLight(LEFT_FOOT_LED, 0, u8G, u8B);
+  }
+  if( (touch_map & MAP_RIGHT_FOOT) != MAP_RIGHT_FOOT){
+    getCurrentPixel(RIGHT_FOOT_LED);
+    setLight(RIGHT_FOOT_LED, 0, u8G, u8B);
+  }
+  if( (touch_map & MAP_RIGHT_HAND) != MAP_RIGHT_HAND){
+    getCurrentPixel(RIGHT_HAND_LED);
+    setLight(RIGHT_HAND_LED, 0, u8G, u8B);
+  }
+  if( (touch_map & MAP_RIGHT_EAR) != MAP_RIGHT_EAR){
+    getCurrentPixel(RIGHT_EAR_LED);
+    setLight(RIGHT_EAR_LED, 0, u8G, u8B);
+  }
+  if( (touch_map & MAP_LEFT_EAR) != MAP_LEFT_EAR){
+    getCurrentPixel(LEFT_EAR_LED);
+    setLight(LEFT_EAR_LED, 0, u8G, u8B);
+  }
+}
+
+// send map to this function to turn off anything that is being touched
+void turnOffYourNotTouched(byte touch_map){
+  if( (touch_map & MAP_LEFT_HAND) != MAP_LEFT_HAND){
+    getCurrentPixel(LEFT_HAND_LED);
+    setLight(LEFT_HAND_LED, u8R, u8G, 0);
+  }
+  if( (touch_map & MAP_LEFT_FOOT) != MAP_LEFT_FOOT){
+    getCurrentPixel(LEFT_FOOT_LED);
+    setLight(LEFT_FOOT_LED, u8R, u8G, 0);
+  }
+  if( (touch_map & MAP_RIGHT_FOOT) != MAP_RIGHT_FOOT){
+    getCurrentPixel(RIGHT_FOOT_LED);
+    setLight(RIGHT_FOOT_LED, u8R, u8G, 0);
+  }
+  if( (touch_map & MAP_RIGHT_HAND) != MAP_RIGHT_HAND){
+    getCurrentPixel(RIGHT_HAND_LED);
+    setLight(RIGHT_HAND_LED, u8R, u8G, 0);
+  }
+  if( (touch_map & MAP_RIGHT_EAR) != MAP_RIGHT_EAR){
+    getCurrentPixel(RIGHT_EAR_LED);
+    setLight(RIGHT_EAR_LED, u8R, u8G, 0);
+  }
+  if( (touch_map & MAP_LEFT_EAR) != MAP_LEFT_EAR){
+    getCurrentPixel(LEFT_EAR_LED);
+    setLight(LEFT_EAR_LED, u8R, u8G, 0);
   }
 }
 
 void turnOn(uint16_t location) {
   if(location == HEART_LED){
-    pixels.setPixelColor(1, pixels.Color(255, 0, 0));
-    pixels.setPixelColor(2, pixels.Color(255, 0, 0));
-    pixels.setPixelColor(3, pixels.Color(255, 0, 0));
-    pixels.setPixelColor(4, pixels.Color(255, 0, 0));
+    pixels.setPixelColor(1, pixels.Color(MY_COLOR_R, MY_COLOR_G, MY_COLOR_B));
+    pixels.setPixelColor(2, pixels.Color(MY_COLOR_R, MY_COLOR_G, MY_COLOR_B));
+    pixels.setPixelColor(3, pixels.Color(MY_COLOR_R, MY_COLOR_G, MY_COLOR_B));
+    pixels.setPixelColor(4, pixels.Color(MY_COLOR_R, MY_COLOR_G, MY_COLOR_B));
   }
   else{
-    pixels.setPixelColor(location, pixels.Color(255, 0, 0));
+    pixels.setPixelColor(location, pixels.Color(MY_COLOR_R, MY_COLOR_G, MY_COLOR_B));
   } 
   pixels.show();
 }
@@ -247,11 +402,11 @@ void heartbeatTouchableLights(){
     setLight(RIGHT_HAND_LED,  t, 0, 0);
     setLight(RIGHT_EAR_LED,   t, 0, 0);
     setLight(LEFT_EAR_LED,    t, 0, 0);
-    delay(100);
+    delay(HEARTBEAT_DELAY);
     
     #ifdef DEBUG 
     Serial.println(t);
-    Serial.println("goung up");
+    Serial.println("going up");
     #endif
   }
   for(int16_t t = 255; t >= 0; t-=5){
@@ -262,11 +417,11 @@ void heartbeatTouchableLights(){
     setLight(RIGHT_HAND_LED,  t, 0, 0);
     setLight(RIGHT_EAR_LED,   t, 0, 0);
     setLight(LEFT_EAR_LED,    t, 0, 0);
-    delay(100);
+    delay(HEARTBEAT_DELAY);
 
     #ifdef DEBUG
     Serial.println(t);
-    Serial.println("goung down");
+    Serial.println("going down");
     #endif
   }
 }
@@ -275,32 +430,55 @@ void playInitTune(void) {
 
 }
 
-//void sendTouchMap(void) {
-//  XBee.print(my_touch_map);
-//}
-//
-//bool receivedTouch(void){
-//  if (XBee.available())
-//  { // If data comes in from XBee, send it out to serial monitor
-//    your_touch_map = XBee.read();
-//    return true;
-//  }
-//  else{
-//    return false;
-//  }
-//}
+#ifdef XBEE_ACTIVE
+void sendTouchMap(void) {
+  if(sent_touch_map != my_touch_map){
+    Serial.write(my_touch_map);
+    sent_touch_map = my_touch_map;
+  }
+}
+
+//updates everytime player lets go or touches
+bool receivedTouch(void){
+  if (Serial.available())
+  { // If data comes in from XBee, send it out to serial monitor
+    Serial.readBytes(&your_touch_map,1);
+    #ifdef DEBUG 
+    Serial.println("RECEIVED TRANSMISSION");
+    Serial.println(your_touch_map,BIN);
+    #endif
+    return true;
+  }
+  else{
+    return false;
+  }
+}
+#endif
 
 void bearPickedUp(){
   // disable interrupt to avoid constantly activating
   detachInterrupt(digitalPinToInterrupt(accIntPin));
-  picked_up = true;
+  
+  if(picked_up != true){
+    picked_up = true;
+  }
+  
+  #ifdef DEBUG 
+  Serial.println("interrupt!");
+  #endif
+  
 }
 
 bool isBearPickedUp(){
   if(picked_up){
     // reenable interrupt
-    attachInterrupt(digitalPinToInterrupt(accIntPin), bearPickedUp, CHANGE);
     picked_up = false;
+
+    #ifdef DEBUG 
+    Serial.println("Bear is picked up");
+    #endif
+    
+    attachInterrupt(digitalPinToInterrupt(accIntPin), bearPickedUp, RISING);
     return true;
   }
   else return false;
@@ -319,23 +497,31 @@ void pinSetup(){
 #endif
 }
 
-void turnOffNotTouched(void){
-  if( (my_touch_map & MAP_LEFT_HAND) != MAP_LEFT_HAND){
-    turnOff(LEFT_HAND_LED);
-  }
-  if( (my_touch_map & MAP_LEFT_FOOT) != MAP_LEFT_FOOT){
-    turnOff(LEFT_FOOT_LED);
-  }
-  if( (my_touch_map & MAP_RIGHT_FOOT) != MAP_RIGHT_FOOT){
-    turnOff(RIGHT_FOOT_LED);
-  }
-  if( (my_touch_map & MAP_RIGHT_HAND) != MAP_RIGHT_HAND){
-    turnOff(RIGHT_HAND_LED);
-  }
-  if( (my_touch_map & MAP_RIGHT_EAR) != MAP_RIGHT_EAR){
-    turnOff(RIGHT_EAR_LED);
-  }
-  if( (my_touch_map & MAP_LEFT_EAR) != MAP_LEFT_EAR){
-    turnOff(LEFT_EAR_LED);
-  }
+uint8_t readReg(uint8_t reg){
+    Wire.beginTransmission(MMA8451_DEFAULT_ADDRESS);
+    #if ARDUINO >= 100
+     Wire.write((uint8_t)reg);
+    #else
+    Wire.send(reg);
+     #endif
+    Wire.endTransmission(false); // MMA8451 + friends uses repeated start!!
+    Wire.requestFrom(MMA8451_DEFAULT_ADDRESS, 1);
+    
+    if (! Wire.available()) return -1;
+    return (i2cread());
+}
+
+static inline uint8_t i2cread(void) {
+  #if ARDUINO >= 100
+  return Wire.read();
+  #else
+  return Wire.receive();
+  #endif
+}
+
+void getCurrentPixel(uint8_t led){
+   long lngRGB = pixels.getPixelColor(led);
+   u8R = (uint8_t)((lngRGB >> 16) & 0xff);
+   u8G = (uint8_t)((lngRGB >> 8) & 0xff);
+   u8B = (uint8_t)(lngRGB & 0xff);
 }
