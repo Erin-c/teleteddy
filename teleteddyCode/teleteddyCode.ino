@@ -85,6 +85,9 @@ volatile bool picked_up = false;
 uint8_t u8R, u8G, u8B;
 
 // Melodies and tones
+int C2 = 65;
+int D2 = 73;
+int E2 = 82;
 int F2 = 87;
 int G2 = 98;
 int A22 = 110;
@@ -94,29 +97,52 @@ int D3 = 147;
 int E3 = 165;
 int F3 = 175;
 int G3 = 196;
+int GS3 = 208;
 int A33 = 220;
 int B3 = 247;
 int C4 = 262;
 int D4 = 294;
+int DS4 = 311;
 int E4 = 330;
-int melody1[] = { F2, A22, C3, E3, F3, D4 };
-int mel_length1 = 7;
-int noteDurations1[] = { 4, 4, 4, 4, 4, 4 };
-int melody2[] = { G3, A33, D4, F3, E3, C3, A22, F2 };
-int mel_length2 = 9;
-int noteDurations2[] = { 2, 2, 2, 2, 4, 4, 4, 2 };
-int melody3[] = { A22, C3, E3 };
-int mel_length3 = 4;
-int noteDurations3[] = { 2, 2, 2 };
-int melody4[] = { E3, C3, A22 };
-int mel_length4 = 4;
-int noteDurations4[] = { 2, 4, 2 };
-int melody5[] = { A22, B2, F2 };
-int mel_length5 = 4;
-int noteDurations5[] = { 1, 2, 4 };
-int melody6[] = { D4, C3, F2 };
-int mel_length6 = 4;
-int noteDurations6[] = { 4, 2, 1 };
+int F4 = 349;
+int G4 = 392;
+int GS4 = 415;
+int A44 = 440;
+int B4 = 494;
+int C5 = 523;
+int C6 = 1046;
+int C7 = 2093;
+
+int t_ND[] = { 2 };
+int t_len = 1;
+
+//tone 1
+int tone1[] = { C2 };
+//tone 2
+int tone2[] = { E2 };
+//tone 3
+int tone3[] = { G2 };
+//tone 4
+int tone4[] = { C3 };
+//tone 5
+int tone5[] = { E3 };
+//tone 6
+int tone6[] = { G3 };
+
+//game start
+int mel1[] = { GS3, B3, DS4, B3, DS4, F4, A44 };
+int m_len1 = 7;
+int noteDurations1[] = { 2, 2, 2, 8, 8, 8, 8 };
+
+//game over
+int mel2[] = { E3, C3, A22 };
+int m_len2 = 3;
+int noteDurations2[] = { 2, 4, 1 };
+
+//paired
+int mel3[] = { A44, B4, A44, B4 };
+int m_len3 = 4;
+int noteDurations3[] = { 8, 16, 8, 16 };
 
 // XBee setup
 //#ifdef XBEE_ACTIVE
@@ -141,14 +167,30 @@ void setup() {
   // set speaker pin to output
   pinMode(SPEAKER_PIN, INPUT_PULLUP);
 
-  // play startup sound
-  playSound(melody1, mel_length1, noteDurations1);
-  playSound(melody2, mel_length2, noteDurations2);
-  playSound(melody3, mel_length3, noteDurations3);
-  playSound(melody4, mel_length4, noteDurations4);
-  playSound(melody5, mel_length5, noteDurations5);
-  playSound(melody6, mel_length6, noteDurations6);
-  
+// play startup sounds
+
+//game start
+//  playSound(mel1, m_len1, noteDurations1);
+//  delay(5000);
+//game over
+//  playSound(mel2, m_len2, noteDurations2);
+//  delay(5000);
+//paired
+//  playSound(mel3, m_len3, noteDurations3);
+//  delay(5000);
+//tones
+  playSound(tone1, t_len, t_ND);
+  delay(3000);
+  playSound(tone2, t_len, t_ND);
+  delay(3000);
+  playSound(tone3, t_len, t_ND);
+  delay(3000);
+  playSound(tone4, t_len, t_ND);
+  delay(3000);
+  playSound(tone5, t_len, t_ND);
+  delay(3000);
+  playSound(tone6, t_len, t_ND);
+    
 //  // XBee setup
 //#ifdef XBEE_ACTIVE
 //  XBee.begin(9600);
