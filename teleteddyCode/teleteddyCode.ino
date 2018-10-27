@@ -66,11 +66,7 @@
 // acceleromter interrupt pin (set to 1 if the bear is picked up)
 const byte accIntPin = 3;
 
-// Melodies and tones
-int melody1[] = { 87, 110, 131, 165, 175, 296, 220, 196 };
-int noteDurations1[] = { 4, 4, 4, 4, 8, 8, 8, 4 };
-int melody2[] = { 196, 220, 296, 175, 165, 131, 110, 87 };
-int noteDurations2[] = { 2, 2, 2, 2, 4, 4, 4, 2 };
+
 
 // track if in two player mode
 bool twoPlayerMode  = false;
@@ -80,13 +76,47 @@ byte my_touch_map   = 0;
 byte your_touch_map = 0;
 
 // keep track of what is sent
-byte sent_touch_map   = 0;
+byte sent_touch_map = 0;
 
 // tracking variable to determine if bear is picked up
-volatile bool picked_up      = false;
+volatile bool picked_up = false;
 
 // variable that gets updated with current pixel values
 uint8_t u8R, u8G, u8B;
+
+// Melodies and tones
+int F2 = 87;
+int G2 = 98;
+int A22 = 110;
+int B2 = 125;
+int C3 = 131;
+int D3 = 147;
+int E3 = 165;
+int F3 = 175;
+int G3 = 196;
+int A33 = 220;
+int B3 = 247;
+int C4 = 262;
+int D4 = 294;
+int E4 = 330;
+int melody1[] = { F2, A22, C3, E3, F3, D4 };
+int mel_length1 = 7;
+int noteDurations1[] = { 4, 4, 4, 4, 4, 4 };
+int melody2[] = { G3, A33, D4, F3, E3, C3, A22, F2 };
+int mel_length2 = 9;
+int noteDurations2[] = { 2, 2, 2, 2, 4, 4, 4, 2 };
+int melody3[] = { A22, C3, E3 };
+int mel_length3 = 4;
+int noteDurations3[] = { 2, 2, 2 };
+int melody4[] = { E3, C3, A22 };
+int mel_length4 = 4;
+int noteDurations4[] = { 2, 4, 2 };
+int melody5[] = { A22, B2, F2 };
+int mel_length5 = 4;
+int noteDurations5[] = { 1, 2, 4 };
+int melody6[] = { D4, C3, F2 };
+int mel_length6 = 4;
+int noteDurations6[] = { 4, 2, 1 };
 
 // XBee setup
 //#ifdef XBEE_ACTIVE
@@ -111,6 +141,13 @@ void setup() {
   // set speaker pin to output
   pinMode(SPEAKER_PIN, INPUT_PULLUP);
 
+  // play startup sound
+  playSound(melody1, mel_length1, noteDurations1);
+  playSound(melody2, mel_length2, noteDurations2);
+  playSound(melody3, mel_length3, noteDurations3);
+  playSound(melody4, mel_length4, noteDurations4);
+  playSound(melody5, mel_length5, noteDurations5);
+  playSound(melody6, mel_length6, noteDurations6);
   
 //  // XBee setup
 //#ifdef XBEE_ACTIVE
@@ -155,8 +192,6 @@ void setup() {
 /************************ LOOP ************************************/
 /******************************************************************/
 void loop() {
-  // play startup sound
-  playSound(melody1, noteDurations1);
   // check all touch sensors and update touch sensor variable
   updateTouchMap();
   // send info on what is being touched on this bear
@@ -187,13 +222,13 @@ void loop() {
 /******************************************************************/
 
 // Sound playback function
-void playSound(int melody[], int noteDurations[]) {
-  for (int thisNote = 0; thisNote < 8; thisNote++) {
+void playSound(int melody[], int mel_length, int noteDurations[]) {
+  for (int thisNote = 0; thisNote < mel_length; thisNote++) {
     int noteDuration = 1000/noteDurations[thisNote];
     toneAC(melody[thisNote], 10, noteDuration, true);
     delay(noteDuration * 4 / 3);
   }
-  while(1);
+  noToneAC();
 }
 
 void updateTouchMap(void) {
