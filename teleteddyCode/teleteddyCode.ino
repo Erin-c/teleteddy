@@ -3,6 +3,7 @@
 #include <Adafruit_MMA8451.h>
 #include <Adafruit_Sensor.h>
 #include <Wire.h>
+#include <toneAC.h>
 
 // for debugging`
 //#define DEBUG           1
@@ -50,7 +51,7 @@
 #define RIGHT_EAR_LED   8
 #define LEFT_EAR_LED    9
 
-#define SPEAKER_PIN     11
+#define SPEAKER_PIN     10
 
 // my bear's color when I press bear
 #define MY_COLOR_R      255
@@ -65,6 +66,11 @@
 // acceleromter interrupt pin (set to 1 if the bear is picked up)
 const byte accIntPin = 3;
 
+// Melodies and tones
+int melody1[] = { 87, 110, 131, 165, 175, 296, 220, 196 };
+int noteDurations1[] = { 4, 4, 4, 4, 8, 8, 8, 4 };
+int melody2[] = { 196, 220, 296, 175, 165, 131, 110, 87 };
+int noteDurations2[] = { 2, 2, 2, 2, 4, 4, 4, 2 };
 
 // track if in two player mode
 bool twoPlayerMode  = false;
@@ -149,6 +155,8 @@ void setup() {
 /************************ LOOP ************************************/
 /******************************************************************/
 void loop() {
+  // play startup sound
+  playSound(melody1, noteDurations1);
   // check all touch sensors and update touch sensor variable
   updateTouchMap();
   // send info on what is being touched on this bear
@@ -177,6 +185,16 @@ void loop() {
 /******************************************************************/
 /************************ FUNCTIONS *******************************/
 /******************************************************************/
+
+// Sound playback function
+void playSound(int melody[], int noteDurations[]) {
+  for (int thisNote = 0; thisNote < 8; thisNote++) {
+    int noteDuration = 1000/noteDurations[thisNote];
+    toneAC(melody[thisNote], 10, noteDuration, true);
+    delay(noteDuration * 4 / 3);
+  }
+  while(1);
+}
 
 void updateTouchMap(void) {
   my_touch_map = 0x00;
