@@ -11,7 +11,7 @@
 #define XBEE_ACTIVE     1
 
 // activate accelerometer
-//#define ACC_ENABLE      1
+#define ACC_ENABLE      1
 
 // activate speaker
 #define SPEAKER_ENABLE  1
@@ -39,6 +39,8 @@
 #define MAP_RIGHT_FOOT  0x10
 #define MAP_LEFT_EAR    0x08
 #define MAP_RIGHT_EAR   0x04
+#define MAP_TAG         0x02
+#define MAP_ACC         0x01
 
 // define what LEDs are where
 #define HEART_LED       0
@@ -121,7 +123,7 @@ void setup() {
   // accelerometer interupt setup
 #ifdef ACC_ENABLE
   pinMode(accIntPin, INPUT);
-  attachInterrupt(digitalPinToInterrupt(accIntPin), bearPickedUp, RISING);
+  attachInterrupt(digitalPinToInterrupt(accIntPin), bearPickedUp, FALLING);
   
   // throw error if accelerometer not working
   if (! mma.begin()) {
@@ -133,6 +135,60 @@ void setup() {
   mma.setRange(MMA8451_RANGE_2_G);
   
   // enable accelerometer interrupt
+  //setup acc
+  setupAcc();
+  
+#endif
+
+  // function to call when want to do one cycle of the heartbeat
+  heartbeatTouchableLights();
+  pinMode(13, OUTPUT);
+}
+
+/******************************************************************/
+/************************ LOOP ************************************/
+/******************************************************************/
+void loop() {
+  // check all touch sensors and update touch sensor variable (also checks and sends if picked up)
+  updateTouchMap();
+  // send info on what is being touched on this bear
+  sendTouchMap();
+  
+  if(receivedTouch()){
+
+    if(isYourBearPickedUp()){
+      heartbeatTouchableLights();
+    } 
+    //turn on LEDs that are touched by you
+    turnOnYourTouched(your_touch_map);
+
+    //turn off LEDs that you let go
+    turnOffYourNotTouched(your_touch_map);
+  }
+
+  // has my bear been lifted
+  if(isMyBearPickedUp()){
+    sendBearPickedUp();
+    digitalWrite(13,HIGH);
+  }else{
+    digitalWrite(13,LOW);
+  }
+
+  delay(1000);
+//  // turn on LEDs that have been touched on my bear
+//  turnOnMyTouched(my_touch_map);
+//
+//  // turn off LEDs that are not touched by my bear
+//  turnOffMyNotTouched(my_touch_map);
+
+
+}
+
+/******************************************************************/
+/************************ FUNCTIONS *******************************/
+/******************************************************************/
+#ifdef ACC_ENABLE
+void setupAcc(){
   mma.writeRegister8(MMA8451_REG_CTRL_REG1, 0x00);            // deactivate
   mma.writeRegister8(0X2A, 0x18);
   mma.writeRegister8(0x15, 0x78 );
@@ -142,47 +198,8 @@ void setup() {
   mma.writeRegister8(MMA8451_REG_CTRL_REG4, 0x04 | 0x20);
   mma.writeRegister8(MMA8451_REG_CTRL_REG5, 0x04 | 0x20);
   mma.writeRegister8(MMA8451_REG_CTRL_REG1, 0x01 | 0x04);     // activate (hard coded)
-  
+}
 #endif
-
-  // function to call when want to do one cycle of the heartbeat
-  heartbeatTouchableLights();
-}
-
-/******************************************************************/
-/************************ LOOP ************************************/
-/******************************************************************/
-void loop() {
-  // check all touch sensors and update touch sensor variable
-  updateTouchMap();
-  // send info on what is being touched on this bear
-  sendTouchMap();
-  
-  if(receivedTouch()){
-    //turn on LEDs that are touched by you
-    turnOnYourTouched(your_touch_map);
-
-    //turn off LEDs that you let go
-    turnOffYourNotTouched(your_touch_map);
-  }
-
-  // has my bear been lifted
-  if(isBearPickedUp()){
-
-  }
-
-  // turn on LEDs that have been touched on my bear
-  turnOnMyTouched(my_touch_map);
-
-  // turn off LEDs that are not touched by my bear
-  turnOffMyNotTouched(my_touch_map);
-
-
-}
-
-/******************************************************************/
-/************************ FUNCTIONS *******************************/
-/******************************************************************/
 
 void updateTouchMap(void) {
   my_touch_map = 0x00;
@@ -595,21 +612,34 @@ void bearPickedUp(){
   
 }
 
-bool isBearPickedUp(){
+bool isMyBearPickedUp(){
   if(picked_up){
     // reenable interrupt
     picked_up = false;
-
+    setupAcc();
     #ifdef DEBUG 
     Serial.println("Bear is picked up");
     #endif
-    
-    attachInterrupt(digitalPinToInterrupt(accIntPin), bearPickedUp, RISING);
+    pinMode(accIntPin, INPUT);
+    attachInterrupt(digitalPinToInterrupt(accIntPin), bearPickedUp, FALLING);
     return true;
   }
   else return false;
 }
 
+void sendBearPickedUp(){
+  byte send_picked_up = 0;
+  send_picked_up |= MAP_ACC;
+  Serial.write(send_picked_up);
+}
+
+bool isYourBearPickedUp(){
+  if ((your_touch_map & MAP_ACC) == MAP_ACC) {
+    your_touch_map = your_touch_map & (0xFF & ~MAP_ACC);
+    return true;
+  }
+  else return false;
+}
 
 void pinSetup(){
   pinMode(FSR_LEFT_HAND, INPUT);
