@@ -39,7 +39,6 @@
 #define MAP_RIGHT_FOOT  0x10
 #define MAP_LEFT_EAR    0x08
 #define MAP_RIGHT_EAR   0x04
-//#define MAP_TAG       0x02
 
 // define what LEDs are where
 #define HEART_LED       0
@@ -53,14 +52,19 @@
 #define SPEAKER_PIN     11
 
 // my bear's color when I press bear
-#define MY_COLOR_R      255
-#define MY_COLOR_G      0
+#define MY_COLOR_R      0
+#define MY_COLOR_G      255
 #define MY_COLOR_B      0
 
-// my bear's color when you press bear
+// your bear's color when you press bear
 #define YOUR_COLOR_R      0
 #define YOUR_COLOR_G      0
 #define YOUR_COLOR_B      255
+
+// if both touched color when you press bear
+#define COMBO_COLOR_R      255
+#define COMBO_COLOR_G      69
+#define COMBO_COLOR_B      0
 
 // acceleromter interrupt pin (set to 1 if the bear is picked up)
 const byte accIntPin = 3;
@@ -172,6 +176,8 @@ void loop() {
 
   // turn off LEDs that are not touched by my bear
   turnOffMyNotTouched(my_touch_map);
+
+
 }
 
 /******************************************************************/
@@ -244,54 +250,114 @@ void updateTouchMap(void) {
 void turnOnMyTouched(uint16_t touch_map){
   if( (touch_map & MAP_LEFT_HAND) == MAP_LEFT_HAND){
     getCurrentPixel(LEFT_HAND_LED);
-    setLight(LEFT_HAND_LED, MY_COLOR_R, u8G, u8B);
+    if(u8B == YOUR_COLOR_B){
+      setLight(LEFT_HAND_LED, COMBO_COLOR_R, COMBO_COLOR_G, COMBO_COLOR_B);
+    }
+    else{
+    setLight(LEFT_HAND_LED, u8R, MY_COLOR_G, u8B);
+    }
   }
   if( (touch_map & MAP_LEFT_FOOT) == MAP_LEFT_FOOT){
     getCurrentPixel(LEFT_FOOT_LED);
-    setLight(LEFT_FOOT_LED, MY_COLOR_R, u8G, u8B);
+    if(u8B == YOUR_COLOR_B){
+      setLight(LEFT_FOOT_LED, COMBO_COLOR_R, COMBO_COLOR_G, COMBO_COLOR_B);
+    }
+    else{
+    setLight(LEFT_FOOT_LED, u8R, MY_COLOR_G, u8B);
+    }
   }
   if( (touch_map & MAP_RIGHT_FOOT) == MAP_RIGHT_FOOT){
     getCurrentPixel(RIGHT_FOOT_LED);
-    setLight(RIGHT_FOOT_LED, MY_COLOR_R, u8G, u8B);
+    if(u8B == YOUR_COLOR_B){
+      setLight(RIGHT_FOOT_LED, COMBO_COLOR_R, COMBO_COLOR_G, COMBO_COLOR_B);
+    }
+    else{
+    setLight(RIGHT_FOOT_LED, u8R, MY_COLOR_G, u8B);
+    }
   }
   if( (touch_map & MAP_RIGHT_HAND) == MAP_RIGHT_HAND){
     getCurrentPixel(RIGHT_HAND_LED);
-    setLight(RIGHT_HAND_LED, MY_COLOR_R, u8G, u8B);
+    if(u8B == YOUR_COLOR_B){
+      setLight(RIGHT_HAND_LED, COMBO_COLOR_R, COMBO_COLOR_G, COMBO_COLOR_B);
+    }
+    else{
+    setLight(RIGHT_HAND_LED, u8R, MY_COLOR_G, u8B);
+    }
   }
   if( (touch_map & MAP_RIGHT_EAR) == MAP_RIGHT_EAR){
     getCurrentPixel(RIGHT_EAR_LED);
-    setLight(RIGHT_EAR_LED, MY_COLOR_R, u8G, u8B);
+    if(u8B == YOUR_COLOR_B){
+      setLight(RIGHT_EAR_LED, COMBO_COLOR_R, COMBO_COLOR_G, COMBO_COLOR_B);
+    }
+    else{
+    setLight(RIGHT_EAR_LED, u8R, MY_COLOR_G, u8B);
+    }
   }
   if( (touch_map & MAP_LEFT_EAR) == MAP_LEFT_EAR){
     getCurrentPixel(LEFT_EAR_LED);
-    setLight(LEFT_EAR_LED, MY_COLOR_R, u8G, u8B);
+    if(u8B == YOUR_COLOR_B){
+      setLight(LEFT_EAR_LED, COMBO_COLOR_R, COMBO_COLOR_G, COMBO_COLOR_B);
+    }
+    else{
+    setLight(LEFT_EAR_LED, u8R, MY_COLOR_G, u8B);
+    }
   }
 }
 
 void turnOnYourTouched(byte touch_map){
   if( (touch_map & MAP_LEFT_HAND) == MAP_LEFT_HAND){
     getCurrentPixel(LEFT_HAND_LED);
-    setLight(LEFT_HAND_LED, u8R, YOUR_COLOR_G, YOUR_COLOR_B);
+    if(u8G == MY_COLOR_B){
+      setLight(LEFT_HAND_LED, COMBO_COLOR_R, COMBO_COLOR_G, COMBO_COLOR_B);
+    }
+    else{
+    setLight(LEFT_HAND_LED, u8R, u8G, YOUR_COLOR_B);
+    }
   }
   if( (touch_map & MAP_LEFT_FOOT) == MAP_LEFT_FOOT){
     getCurrentPixel(LEFT_FOOT_LED);
-    setLight(LEFT_FOOT_LED, u8R, YOUR_COLOR_G, YOUR_COLOR_B);
+    if(u8G == MY_COLOR_B){
+      setLight(LEFT_FOOT_LED, COMBO_COLOR_R, COMBO_COLOR_G, COMBO_COLOR_B);
+    }
+    else{
+    setLight(LEFT_FOOT_LED, u8R, u8G, YOUR_COLOR_B);
+    }
   }
   if( (touch_map & MAP_RIGHT_FOOT) == MAP_RIGHT_FOOT){
     getCurrentPixel(RIGHT_FOOT_LED);
-    setLight(RIGHT_FOOT_LED, u8R, YOUR_COLOR_G, YOUR_COLOR_B);
+    if(u8G == MY_COLOR_B){
+      setLight(RIGHT_FOOT_LED, COMBO_COLOR_R, COMBO_COLOR_G, COMBO_COLOR_B);
+    }
+    else{
+    setLight(RIGHT_FOOT_LED, u8R, u8G, YOUR_COLOR_B);
+    }
   }
   if( (touch_map & MAP_RIGHT_HAND) == MAP_RIGHT_HAND){
     getCurrentPixel(RIGHT_HAND_LED);
-    setLight(RIGHT_HAND_LED, u8R, YOUR_COLOR_G, YOUR_COLOR_B);
+    if(u8G == MY_COLOR_B){
+      setLight(RIGHT_HAND_LED, COMBO_COLOR_R, COMBO_COLOR_G, COMBO_COLOR_B);
+    }
+    else{
+    setLight(RIGHT_HAND_LED, u8R, u8G, YOUR_COLOR_B);
+    }
   }
   if( (touch_map & MAP_RIGHT_EAR) == MAP_RIGHT_EAR){
     getCurrentPixel(RIGHT_EAR_LED);
-    setLight(RIGHT_EAR_LED, u8R, YOUR_COLOR_G, YOUR_COLOR_B);
+    if(u8G == MY_COLOR_B){
+      setLight(RIGHT_EAR_LED, COMBO_COLOR_R, COMBO_COLOR_G, COMBO_COLOR_B);
+    }
+    else{
+    setLight(RIGHT_EAR_LED, u8R, u8G, YOUR_COLOR_B);
+    }
   }
   if( (touch_map & MAP_LEFT_EAR) == MAP_LEFT_EAR){
     getCurrentPixel(LEFT_EAR_LED);
-    setLight(LEFT_EAR_LED, u8R, YOUR_COLOR_G, YOUR_COLOR_B);
+    if(u8G == MY_COLOR_B){
+      setLight(LEFT_EAR_LED, COMBO_COLOR_R, COMBO_COLOR_G, COMBO_COLOR_B);
+    }
+    else{
+    setLight(LEFT_EAR_LED, u8R, u8G, YOUR_COLOR_B);
+    }
   }
 }
 
@@ -299,27 +365,57 @@ void turnOnYourTouched(byte touch_map){
 void turnOffMyNotTouched(byte touch_map){
   if( (touch_map & MAP_LEFT_HAND) != MAP_LEFT_HAND){
     getCurrentPixel(LEFT_HAND_LED);
-    setLight(LEFT_HAND_LED, 0, u8G, u8B);
+    if(u8R == COMBO_COLOR_R){
+      setLight(LEFT_HAND_LED, 0, 0, YOUR_COLOR_B);
+    }
+    else{
+      setLight(LEFT_HAND_LED, 0, 0, u8B);
+    }
   }
   if( (touch_map & MAP_LEFT_FOOT) != MAP_LEFT_FOOT){
     getCurrentPixel(LEFT_FOOT_LED);
-    setLight(LEFT_FOOT_LED, 0, u8G, u8B);
+    if(u8R == COMBO_COLOR_R){
+      setLight(LEFT_FOOT_LED, 0, 0, YOUR_COLOR_B);
+    }
+    else{
+      setLight(LEFT_FOOT_LED, 0, 0, u8B);
+    }
   }
   if( (touch_map & MAP_RIGHT_FOOT) != MAP_RIGHT_FOOT){
     getCurrentPixel(RIGHT_FOOT_LED);
-    setLight(RIGHT_FOOT_LED, 0, u8G, u8B);
+    if(u8R == COMBO_COLOR_R){
+      setLight(RIGHT_FOOT_LED, 0, 0, YOUR_COLOR_B);
+    }
+    else{
+      setLight(RIGHT_FOOT_LED, 0, 0, u8B);
+    }
   }
   if( (touch_map & MAP_RIGHT_HAND) != MAP_RIGHT_HAND){
     getCurrentPixel(RIGHT_HAND_LED);
-    setLight(RIGHT_HAND_LED, 0, u8G, u8B);
+    if(u8R == COMBO_COLOR_R){
+      setLight(RIGHT_HAND_LED, 0, 0, YOUR_COLOR_B);
+    }
+    else{
+      setLight(RIGHT_HAND_LED, 0, 0, u8B);
+    }
   }
   if( (touch_map & MAP_RIGHT_EAR) != MAP_RIGHT_EAR){
     getCurrentPixel(RIGHT_EAR_LED);
-    setLight(RIGHT_EAR_LED, 0, u8G, u8B);
+    if(u8R == COMBO_COLOR_R){
+      setLight(RIGHT_EAR_LED, 0, 0, YOUR_COLOR_B);
+    }
+    else{
+      setLight(RIGHT_EAR_LED, 0, 0, u8B);
+    }
   }
   if( (touch_map & MAP_LEFT_EAR) != MAP_LEFT_EAR){
     getCurrentPixel(LEFT_EAR_LED);
-    setLight(LEFT_EAR_LED, 0, u8G, u8B);
+    if(u8R == COMBO_COLOR_R){
+      setLight(LEFT_EAR_LED, 0, 0, YOUR_COLOR_B);
+    }
+    else{
+      setLight(LEFT_EAR_LED, 0, 0, u8B);
+    }
   }
 }
 
@@ -327,27 +423,57 @@ void turnOffMyNotTouched(byte touch_map){
 void turnOffYourNotTouched(byte touch_map){
   if( (touch_map & MAP_LEFT_HAND) != MAP_LEFT_HAND){
     getCurrentPixel(LEFT_HAND_LED);
-    setLight(LEFT_HAND_LED, u8R, u8G, 0);
+    if(u8R == COMBO_COLOR_R){
+      setLight(LEFT_HAND_LED, 0, YOUR_COLOR_G, 0);
+    }
+    else{
+      setLight(LEFT_HAND_LED, 0, u8G, 0);
+    }
   }
   if( (touch_map & MAP_LEFT_FOOT) != MAP_LEFT_FOOT){
     getCurrentPixel(LEFT_FOOT_LED);
-    setLight(LEFT_FOOT_LED, u8R, u8G, 0);
+    if(u8R == COMBO_COLOR_R){
+      setLight(LEFT_FOOT_LED, 0, YOUR_COLOR_G, 0);
+    }
+    else{
+      setLight(LEFT_FOOT_LED, 0, u8G, 0);
+    }
   }
   if( (touch_map & MAP_RIGHT_FOOT) != MAP_RIGHT_FOOT){
     getCurrentPixel(RIGHT_FOOT_LED);
-    setLight(RIGHT_FOOT_LED, u8R, u8G, 0);
+    if(u8R == COMBO_COLOR_R){
+      setLight(RIGHT_FOOT_LED, 0, YOUR_COLOR_G, 0);
+    }
+    else{
+      setLight(RIGHT_FOOT_LED, 0, u8G, 0);
+    }
   }
   if( (touch_map & MAP_RIGHT_HAND) != MAP_RIGHT_HAND){
     getCurrentPixel(RIGHT_HAND_LED);
-    setLight(RIGHT_HAND_LED, u8R, u8G, 0);
+    if(u8R == COMBO_COLOR_R){
+      setLight(RIGHT_HAND_LED, 0, YOUR_COLOR_G, 0);
+    }
+    else{
+      setLight(RIGHT_HAND_LED, 0, u8G, 0);
+    }
   }
   if( (touch_map & MAP_RIGHT_EAR) != MAP_RIGHT_EAR){
     getCurrentPixel(RIGHT_EAR_LED);
-    setLight(RIGHT_EAR_LED, u8R, u8G, 0);
+    if(u8R == COMBO_COLOR_R){
+      setLight(RIGHT_EAR_LED, 0, YOUR_COLOR_G, 0);
+    }
+    else{
+      setLight(RIGHT_EAR_LED, 0, u8G, 0);
+    }
   }
   if( (touch_map & MAP_LEFT_EAR) != MAP_LEFT_EAR){
     getCurrentPixel(LEFT_EAR_LED);
-    setLight(LEFT_EAR_LED, u8R, u8G, 0);
+    if(u8R == COMBO_COLOR_R){
+      setLight(LEFT_EAR_LED, 0, YOUR_COLOR_G, 0);
+    }
+    else{
+      setLight(LEFT_EAR_LED, 0, u8G, 0);
+    }
   }
 }
 
