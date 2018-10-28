@@ -106,6 +106,7 @@ using namespace std;
 
 #define TIMEOUT_DUAL_MODE  10000
 #define INPUT_TIMEOUT      3000
+#define TIMEOUT_RESPONSE   5000
 
 // acceleromter interrupt pin (set to 1 if the bear is picked up)
 const byte accIntPin = 3;
@@ -411,6 +412,7 @@ void dual_mode() {
       playGameStartTone();
 #endif
         initSlaveGame();
+        break;
         timeout_counter = millis();
       }
     }else if(touchedTag(my_touch_map)) {
@@ -423,7 +425,10 @@ void dual_mode() {
 #endif
       initMasterGame();
       waitForSlave();
+      break;
       timeout_counter = millis();
+      
+      
     }
     //time out if no touch activity on your bear
     else if((millis() - timeout_counter) >= TIMEOUT_DUAL_MODE) {
@@ -1066,6 +1071,7 @@ void simonGame(void) {
 #endif
       // red
       if (gameInput[i] == 4) {
+        setLight(gameInput[i], GAME_R, GAME_G, GAME_B);
 #ifdef SPEAKER_ENABLE
         playTone1();
 #endif
@@ -1075,6 +1081,7 @@ void simonGame(void) {
       }
       // green
       if (gameInput[i] == 5) {
+        setLight(gameInput[i], GAME_R, GAME_G, GAME_B);
 #ifdef SPEAKER_ENABLE
         playTone2();
 #endif
@@ -1084,6 +1091,7 @@ void simonGame(void) {
       }
       // blue
       if (gameInput[i] == 6) {
+        setLight(gameInput[i], GAME_R, GAME_G, GAME_B);
 #ifdef SPEAKER_ENABLE
         playTone3();
 #endif
@@ -1093,6 +1101,7 @@ void simonGame(void) {
       }
       // yellow
       if (gameInput[i] == 7) {
+        setLight(gameInput[i], GAME_R, GAME_G, GAME_B);
 #ifdef SPEAKER_ENABLE
         playTone4();
 #endif
@@ -1103,7 +1112,6 @@ void simonGame(void) {
 #ifdef DEBUG
       Serial.println("interrupt!");
 #endif
-      setLight(gameInput[i], GAME_R, GAME_G, GAME_B);
       delay(500);
       // turn off
       setLight(gameInput[i], 0, 0, 0);
@@ -1450,7 +1458,7 @@ void response(vector<byte> gameInput) {
 
     do {
       updateTouchMap();
-      if ((millis() - p2inputTime) >= TIMEOUT) {
+      if ((millis() - p2inputTime) >= TIMEOUT_RESPONSE) {
         return;
       }
       delay(50);
@@ -1478,11 +1486,11 @@ void response(vector<byte> gameInput) {
       gameOver();
       return;
     }
-    if (gameInput[j] == 8 && digitalRead(FSR_RIGHT_HAND) != LOW) {
+    if (gameInput[j] == 8 && digitalRead(FSR_RIGHT_EAR) != LOW) {
       gameOver();
       return;
     }
-    if (gameInput[j] == 9 && digitalRead(FSR_RIGHT_HAND) != LOW) {
+    if (gameInput[j] == 9 && digitalRead(FSR_LEFT_EAR) != LOW) {
       gameOver();
       return;
     }
