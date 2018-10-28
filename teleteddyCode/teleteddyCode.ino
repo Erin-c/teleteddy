@@ -376,7 +376,7 @@ void dual_mode() {
 #ifdef SPEAKER_ENABLE
   playPairedTone();
 #endif
-  unsigned long timeout_counter = 0;
+  unsigned long timeout_counter = millis();
 
   //turn on heart when paired
   setLight(HEART_LED,   255, 0, 0);
@@ -1462,7 +1462,7 @@ void response(vector<byte> gameInput) {
         return;
       }
       delay(50);
-    } while (my_touch_map == 0);
+    } while ( (my_touch_map & 0xFC) == 0);
 
     // turn on LEDs that have been touched on my bear
     turnOnMyTouched(my_touch_map);
