@@ -111,7 +111,6 @@ using namespace std;
 // acceleromter interrupt pin (set to 1 if the bear is picked up)
 const byte accIntPin = 3;
 
-
 // track if in two player mode
 bool twoPlayerMode  = false;
 
@@ -129,11 +128,6 @@ volatile bool picked_up      = false;
 uint8_t u8R, u8G, u8B;
 
 bool your_bear_pickup_flag = false;
-
-// XBee setup
-//#ifdef XBEE_ACTIVE
-//SoftwareSerial XBee(11, 9); // RX, TX
-//#endif
 
 Adafruit_NeoPixel pixels = Adafruit_NeoPixel(NUMPIXELS, PIN, NEO_GRB + NEO_KHZ800);
 #ifdef ACC_ENABLE
@@ -212,6 +206,7 @@ void loop() {
         your_touch_map = 0;
         dual_mode();
         setLight(HEART_LED,   0, 0, 0);
+        playUnpairedTone();
         break;
       }
 
@@ -228,6 +223,7 @@ void loop() {
         Serial.write(0xFF); //tell other bear to enter dual mode!
         dual_mode();
         setLight(HEART_LED,   0, 0, 0);
+        playUnpairedTone();
         break;
       }
     }
@@ -347,6 +343,16 @@ void playGameOverTone(){
 
 void playPairedTone(){
   playSound(mel3, m_len3, noteDurations3);  
+}
+
+
+void playUnpairedTone(){
+  playSound(tone1, t_len, t_ND);  
+  playSound(tone2, t_len, t_ND);
+  playSound(tone3, t_len, t_ND);  
+  playSound(tone4, t_len, t_ND);
+  playSound(tone5, t_len, t_ND);  
+  playSound(tone6, t_len, t_ND);
 }
 
 void playTone1(){
@@ -1470,31 +1476,31 @@ void response(vector<byte> gameInput) {
     turnOffMyNotTouched(my_touch_map);
     delay(100);
 
-    if (gameInput[j] == 4 && digitalRead(FSR_LEFT_HAND) != LOW) {
+    if (gameInput[j] == 4 && ((my_touch_map & MAP_LEFT_HAND) == MAP_LEFT_HAND) ) {
       gameOver();
       return;
     }
-    if (gameInput[j] == 5 && digitalRead(FSR_LEFT_FOOT) != LOW) {
+    else if (gameInput[j] == 5  && ((my_touch_map & MAP_LEFT_FOOT) == MAP_LEFT_FOOT) ) {
       gameOver();
       return;
     }
-    if (gameInput[j] == 6 && digitalRead(FSR_RIGHT_FOOT) != LOW) {
+    else if (gameInput[j] == 6  && ((my_touch_map & MAP_RIGHT_FOOT) == MAP_RIGHT_FOOT) ) {
       gameOver();
       return;
     }
-    if (gameInput[j] == 7 && digitalRead(FSR_RIGHT_HAND) != LOW) {
+    else if (gameInput[j] == 7  && ((my_touch_map & MAP_RIGHT_HAND) == MAP_RIGHT_HAND) ) {
       gameOver();
       return;
     }
-    if (gameInput[j] == 8 && digitalRead(FSR_RIGHT_EAR) != LOW) {
+    else if (gameInput[j] == 8  && ((my_touch_map & MAP_RIGHT_EAR) == MAP_RIGHT_EAR) ) {
       gameOver();
       return;
     }
-    if (gameInput[j] == 9 && digitalRead(FSR_LEFT_EAR) != LOW) {
+    else if (gameInput[j] == 9  && ((my_touch_map & MAP_LEFT_EAR) == MAP_LEFT_EAR) ) {
       gameOver();
       return;
     }
-    while (my_touch_map != 0) {
+    while ( (my_touch_map & 0xFC) != 0) {
 #ifdef DEBUG
       Serial.println("waiting to let go");
 #endif
@@ -1506,7 +1512,7 @@ void response(vector<byte> gameInput) {
     turnOnMyTouched(my_touch_map);
     // turn off LEDs that are not touched by my bear
     turnOffMyNotTouched(my_touch_map);
-    delay(100);
+    delay(1000);
   }
   gameWon();
 }
