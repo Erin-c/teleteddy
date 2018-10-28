@@ -3,6 +3,11 @@
 #include <Adafruit_MMA8451.h>
 #include <Adafruit_Sensor.h>
 #include <Wire.h>
+#include <ArduinoSTL.h>
+#include <vector>
+#include <iterator>
+
+using namespace std; 
 
 // for debugging`
 //#define DEBUG           1
@@ -30,7 +35,7 @@
 #define FSR_RIGHT_FOOT  A1
 #define FSR_LEFT_EAR    4
 #define FSR_RIGHT_EAR   7
-//#define FSR_TAG         5
+#define FSR_TAG         5
 
 // bit map for fsr readings
 #define MAP_LEFT_HAND   0x80
@@ -68,6 +73,9 @@
 #define COMBO_COLOR_G      69
 #define COMBO_COLOR_B      0
 
+#define TIMEOUT_DUAL_MODE  10000
+
+
 // acceleromter interrupt pin (set to 1 if the bear is picked up)
 const byte accIntPin = 3;
 
@@ -87,6 +95,8 @@ volatile bool picked_up      = false;
 
 // variable that gets updated with current pixel values
 uint8_t u8R, u8G, u8B;
+
+bool your_bear_pickup_flag = false;
 
 // XBee setup
 //#ifdef XBEE_ACTIVE
@@ -122,6 +132,7 @@ void setup() {
 
   // accelerometer interupt setup
 #ifdef ACC_ENABLE
+  delay(500);
   pinMode(accIntPin, INPUT);
   attachInterrupt(digitalPinToInterrupt(accIntPin), bearPickedUp, FALLING);
   
@@ -141,52 +152,197 @@ void setup() {
 #endif
 
   // function to call when want to do one cycle of the heartbeat
-  heartbeatTouchableLights();
+  heartbeatTouchableLights(10);
   pinMode(13, OUTPUT);
 }
 
 /******************************************************************/
 /************************ LOOP ************************************/
 /******************************************************************/
+bool start_phase = true;
+
 void loop() {
-  // check all touch sensors and update touch sensor variable (also checks and sends if picked up)
-  updateTouchMap();
-  // send info on what is being touched on this bear
-  sendTouchMap();
+  if(isYourBearPickedUp() || receivedTouch()){
+    unsigned long init_time = millis();
+    while(true){
+
+      // this is a notification by your bear that you want to pair
+      if(your_touch_map == 0xFF){
+        your_touch_map = 0;
+        dual_mode();
+      }
+
+      
+      if( (millis() - init_time) >= TIMEOUT_DUAL_MODE){
+        break;
+      }
+
+      heartbeatTouchableLights(100); 
   
-  if(receivedTouch()){
-
-    if(isYourBearPickedUp()){
-      heartbeatTouchableLights();
-    } 
-    //turn on LEDs that are touched by you
-    turnOnYourTouched(your_touch_map);
-
-    //turn off LEDs that you let go
-    turnOffYourNotTouched(your_touch_map);
-  }
-
-  // has my bear been lifted
-  if(isMyBearPickedUp()){
-    sendBearPickedUp();
-    digitalWrite(13,HIGH);
+  
+      // I touched the bear so that I can interact with the other bear
+      if( my_touch_map != 0){
+        Serial.write(0xFF); //tell other bear to enter dual mode!
+        dual_mode();
+        setLight(HEART_LED,   0, 0, 0);
+      } 
+    }
   }else{
-    digitalWrite(13,LOW);
+    
+    // check all touch sensors and update touch sensor variable (also checks and sends if picked up)
+    updateTouchMap();
+    // send info on what is being touched on this bear
+    #ifdef XBEE_ACTIVE
+    sendTouchMap();
+    #endif
+  
+    //init single player game
+    if(touchedTag(my_touch_map)){
+      simonGame();
+    }
+  
+    // has my bear been lifted
+    if(isMyBearPickedUp()){
+      sendBearPickedUp();
+      digitalWrite(13,HIGH);
+    }else{
+      digitalWrite(13,LOW);
+    }
+  
+      // turn on LEDs that have been touched on my bear
+    turnOnMyTouched(my_touch_map);
+    // turn off LEDs that are not touched by my bear
+    turnOffMyNotTouched(my_touch_map);
+  
+    delay(100);
   }
 
-  delay(1000);
-//  // turn on LEDs that have been touched on my bear
-//  turnOnMyTouched(my_touch_map);
+
+//    // check all touch sensors and update touch sensor variable (also checks and sends if picked up)
+//    updateTouchMap();
+//    // send info on what is being touched on this bear
+//    #ifdef XBEE_ACTIVE
+//    sendTouchMap();
+//    #endif
+//      // turn on LEDs that have been touched on my bear
+//    turnOnMyTouched(my_touch_map);
+//    // turn off LEDs that are not touched by my bear
+//    turnOffMyNotTouched(my_touch_map);
 //
-//  // turn off LEDs that are not touched by my bear
-//  turnOffMyNotTouched(my_touch_map);
-
-
+//
+//    #ifdef XBEE_ACTIVE
+//    if(receivedTouch()){
+//      //turn on LEDs that are touched by you
+//      turnOnYourTouched(your_touch_map);
+//      //turn off LEDs that you let go
+//      turnOffYourNotTouched(your_touch_map);
+//
+//      if(touchedTag(your_touch_map)){
+//        initSlaveGame();
+//      }
+//    #endif
+//    }
 }
 
 /******************************************************************/
 /************************ FUNCTIONS *******************************/
 /******************************************************************/
+
+void dual_mode(){
+    unsigned long timeout_counter = 0;
+
+    //turn on heart when paired
+    setLight(HEART_LED,   255, 0, 0);
+
+    while(true){
+      // check all touch sensors and update touch sensor variable (also checks and sends if picked up)
+      updateTouchMap();
+      // send info on what is being touched on this bear
+      #ifdef XBEE_ACTIVE
+      sendTouchMap();
+      #endif
+        
+      // turn on LEDs that have been touched on my bear
+      turnOnMyTouched(my_touch_map);
+  
+      // turn off LEDs that are not touched by my bear
+      turnOffMyNotTouched(my_touch_map);
+
+      #ifdef XBEE_ACTIVE
+      if(receivedTouch()){
+        timeout_counter = millis();
+        
+        //turn on LEDs that are touched by you
+        turnOnYourTouched(your_touch_map);
+        //turn off LEDs that you let go
+        turnOffYourNotTouched(your_touch_map);
+  
+        if(touchedTag(your_touch_map)){
+          initSlaveGame();
+        }
+      }
+      
+      #endif
+  
+      if(touchedTag(your_touch_map)){
+        initMasterGame();
+      }
+
+      //time out if no touch activity on your bear
+      if((millis() - timeout_counter) >= TIMEOUT_DUAL_MODE){
+        return;
+      }
+    }
+}
+
+vector<byte> waitToReceiveSequence(){
+  
+  uint8_t numberOfBytesToReceive = 0;
+  while(numberOfBytesToReceive == 0){
+    if(Serial.available())
+    { // If data comes in from XBee, send it out to serial monitor
+      Serial.readBytes(&numberOfBytesToReceive,1);
+    }
+  }
+
+  uint8_t receivedSequence[numberOfBytesToReceive];
+    if(Serial.available())
+    { // If data comes in from XBee, send it out to serial monitor
+      Serial.readBytes(receivedSequence,numberOfBytesToReceive);
+    }else{
+      #ifdef DEBUG 
+      Serial.println("didn't receive anything");
+      #endif
+    }
+
+  vector<byte> receivedMoves;
+  for(int i = 0; i < numberOfBytesToReceive; i++){
+    receivedMoves.push_back(receivedSequence[i]);
+  }
+
+  return receivedMoves;
+}
+
+void sendSequence(vector<byte> sequence){
+  byte sequence_size = sequence.size();
+  byte sequence_array[sequence_size+1];
+  sequence_array[0] = sequence_size;
+  
+  for(int i = 0; i < sequence_size; i++){
+    sequence_array[i+1] = sequence[i];
+  }
+  Serial.write(sequence_array, sequence_size + 1);
+}
+
+bool touchedTag(byte touch_map){
+  if( (touch_map &= MAP_TAG) == MAP_TAG){
+    return true;
+  }
+  else{
+    return false;
+  }
+}
+
 #ifdef ACC_ENABLE
 void setupAcc(){
   mma.writeRegister8(MMA8451_REG_CTRL_REG1, 0x00);            // deactivate
@@ -533,11 +689,23 @@ void setLight(uint16_t location, uint16_t r, uint16_t g, uint16_t b){
   pixels.show();
 }
 
-void heartbeatTouchableLights(){
+void heartbeatTouchableLights(uint8_t delay_time){
   #ifdef DEBUG 
   Serial.println("Heartbeat active");
   #endif
   for(uint16_t t = 0; t <= 255; t+=5){
+    updateTouchMap();
+    if(my_touch_map != 0){
+      setLight(HEART_LED,   0, 0, 0);
+      setLight(LEFT_HAND_LED,   0, 0, 0);
+      setLight(LEFT_FOOT_LED,   0, 0, 0);
+      setLight(RIGHT_FOOT_LED,  0, 0, 0);
+      setLight(RIGHT_HAND_LED,  0, 0, 0);
+      setLight(RIGHT_EAR_LED,   0, 0, 0);
+      setLight(LEFT_EAR_LED,    0, 0, 0);
+      break;
+    }
+    
     setLight(HEART_LED,   t, 0, 0);
     setLight(LEFT_HAND_LED,   t, 0, 0);
     setLight(LEFT_FOOT_LED,   t, 0, 0);
@@ -545,7 +713,7 @@ void heartbeatTouchableLights(){
     setLight(RIGHT_HAND_LED,  t, 0, 0);
     setLight(RIGHT_EAR_LED,   t, 0, 0);
     setLight(LEFT_EAR_LED,    t, 0, 0);
-    delay(HEARTBEAT_DELAY);
+    delay(delay_time);
     
     #ifdef DEBUG 
     Serial.println(t);
@@ -553,6 +721,18 @@ void heartbeatTouchableLights(){
     #endif
   }
   for(int16_t t = 255; t >= 0; t-=5){
+    updateTouchMap();
+    if(my_touch_map != 0){
+      setLight(HEART_LED,   0, 0, 0);
+      setLight(LEFT_HAND_LED,   0, 0, 0);
+      setLight(LEFT_FOOT_LED,   0, 0, 0);
+      setLight(RIGHT_FOOT_LED,  0, 0, 0);
+      setLight(RIGHT_HAND_LED,  0, 0, 0);
+      setLight(RIGHT_EAR_LED,   0, 0, 0);
+      setLight(LEFT_EAR_LED,    0, 0, 0);
+      break;
+    }
+    
     setLight(HEART_LED,   t, 0, 0);
     setLight(LEFT_HAND_LED,   t, 0, 0);
     setLight(LEFT_FOOT_LED,   t, 0, 0);
@@ -560,7 +740,7 @@ void heartbeatTouchableLights(){
     setLight(RIGHT_HAND_LED,  t, 0, 0);
     setLight(RIGHT_EAR_LED,   t, 0, 0);
     setLight(LEFT_EAR_LED,    t, 0, 0);
-    delay(HEARTBEAT_DELAY);
+    delay(delay_time);
 
     #ifdef DEBUG
     Serial.println(t);
@@ -576,7 +756,11 @@ void playInitTune(void) {
 #ifdef XBEE_ACTIVE
 void sendTouchMap(void) {
   if(sent_touch_map != my_touch_map){
-    Serial.write(my_touch_map);
+    if(start_phase){
+      start_phase = false;
+    }else{
+      Serial.write(my_touch_map);
+    }
     sent_touch_map = my_touch_map;
   }
 }
@@ -636,6 +820,7 @@ void sendBearPickedUp(){
 bool isYourBearPickedUp(){
   if ((your_touch_map & MAP_ACC) == MAP_ACC) {
     your_touch_map = your_touch_map & (0xFF & ~MAP_ACC);
+    your_bear_pickup_flag = true;
     return true;
   }
   else return false;
@@ -680,4 +865,345 @@ void getCurrentPixel(uint8_t led){
    u8R = (uint8_t)((lngRGB >> 16) & 0xff);
    u8G = (uint8_t)((lngRGB >> 8) & 0xff);
    u8B = (uint8_t)(lngRGB & 0xff);
+}
+
+/******************************************************************/
+/************************ GAME CODE *******************************/
+/******************************************************************/
+
+#define TIMEOUT 5000
+
+void simonGame(void){
+  #ifdef DEBUG 
+  Serial.println("start game");
+  #endif
+  int round = 1;
+  uint16_t GAME_R = 0;
+  uint16_t GAME_G = 0;
+  uint16_t GAME_B = 0;
+  
+  // play chime
+  // light up heart (l-->r t-->b) green red yellow blue
+  while(true){
+    uint16_t gameInput[round];
+     #ifdef DEBUG 
+     Serial.println(round);
+     #endif
+
+     
+    // initialize pattern to match
+    for (int i = 0; i < round; i++){
+      gameInput[i] = random(4,8);
+      #ifdef DEBUG 
+      Serial.println(gameInput[i]);
+      #endif
+      // red
+      if(gameInput[i] == 4) {
+        GAME_R = 255;
+        GAME_G = 0;
+        GAME_B = 0;
+      }
+      // green
+      if(gameInput[i] == 5) {
+        GAME_R = 0;
+        GAME_G = 255;
+        GAME_B = 0;
+      }
+      // blue
+      if(gameInput[i] == 6) {
+        GAME_R = 0;
+        GAME_G = 0;
+        GAME_B = 255;
+      }
+      // yellow
+      if(gameInput[i] == 7) {
+        GAME_R = 255;
+        GAME_G = 255;
+        GAME_B = 0;
+      }
+       #ifdef DEBUG 
+       Serial.println("interrupt!");
+       #endif
+      setLight(gameInput[i], GAME_R, GAME_G, GAME_B);
+      delay(500);
+      // turn off
+      setLight(gameInput[i], 0, 0, 0);
+      delay(100);
+    }
+    
+    // take input from the user and compare
+    for (int j = 0; j < round; j++){
+      #ifdef DEBUG 
+       Serial.println("waiting for input");
+       #endif
+      unsigned long initTime = millis();
+      do{
+        updateTouchMap();
+        if((millis() - initTime) >= TIMEOUT){
+          return;
+        }
+        delay(50);
+      }while(my_touch_map == 0);
+
+      
+      // turn on LEDs that have been touched on my bear
+      turnOnMyTouched(my_touch_map);
+      // turn off LEDs that are not touched by my bear
+      turnOffMyNotTouched(my_touch_map);
+  
+      if(gameInput[j] == 4) {
+        
+        if(digitalRead(FSR_LEFT_HAND) == LOW) {
+          #ifdef DEBUG 
+          Serial.println("4 touched");
+          #endif
+          // play tune 4
+          //continue;
+        }
+        else {
+          gameOver();
+          return;
+        }
+      }
+      if(gameInput[j] == 5) {
+        if(digitalRead(FSR_LEFT_FOOT) == LOW) {
+          #ifdef DEBUG 
+          Serial.println("5 touched");
+          #endif
+          // play tune 5
+          //continue;
+        }
+        else {
+          gameOver();
+          return;
+        }
+      }
+      if(gameInput[j] == 6) {
+        if(digitalRead(FSR_RIGHT_FOOT) == LOW) {
+          #ifdef DEBUG 
+          Serial.println("6 touched");
+          #endif
+          // play tune 6
+          //continue;
+        }
+        else {
+          gameOver();
+          return;
+        }
+      }
+      if(gameInput[j] == 7) {
+        if(digitalRead(FSR_RIGHT_HAND) == LOW) {
+          #ifdef DEBUG 
+          Serial.println("7 touched");
+          #endif
+           // play tune 7
+           //continue;
+         }
+         else {
+           gameOver();
+           return;
+         }
+      }
+      while(my_touch_map != 0){
+        #ifdef DEBUG 
+         Serial.println("waiting to let go");
+         #endif
+        updateTouchMap();
+        delay(50);
+      } 
+        // turn on LEDs that have been touched on my bear
+      turnOnMyTouched(my_touch_map);
+      // turn off LEDs that are not touched by my bear
+      turnOffMyNotTouched(my_touch_map);
+    }
+    round++;
+  }
+}
+
+void gameOver(void){
+  //play losing tune
+  pinMode(13, OUTPUT);
+  digitalWrite(13, HIGH);
+  delay(500);
+  digitalWrite(13, LOW);
+}
+
+void gameWon(void){
+  //play winning tune
+  pinMode(13, OUTPUT);
+  digitalWrite(13, HIGH);
+  delay(500);
+  digitalWrite(13, LOW);
+}
+
+/* BearSeeBearDo */ 
+ 
+// initialize pattern to match
+void recordAndSendMoves(){
+  uint16_t GAME_R = 0;
+  uint16_t GAME_G = 0;
+  uint16_t GAME_B = 0;
+
+  unsigned long p1inputTime = 0;
+  
+  vector<byte> gameInput;  
+  int i = 0;
+  while(true){
+    p1inputTime = millis();
+    // dont do anything while not touching
+    do{
+      updateTouchMap();
+      if((millis() - p1inputTime) >= TIMEOUT){
+        sendSequence(gameInput);
+      }
+      delay(50);
+    }while(my_touch_map == 0);
+    
+    if (digitalRead(FSR_LEFT_HAND) == LOW){
+      gameInput.push_back(4);
+      // play tune 4
+      GAME_R = 255;
+      GAME_G = 0;
+      GAME_B = 0;
+      setLight(FSR_LEFT_HAND, GAME_R, GAME_G, GAME_B);
+      delay(500);
+      // turn off
+      setLight(FSR_LEFT_HAND, 0, 0, 0);
+      delay(100);
+      
+    }
+    if (digitalRead(FSR_LEFT_FOOT) == LOW){
+      gameInput.push_back(5);
+      // play tune 5
+      GAME_R = 0;
+      GAME_G = 255;
+      GAME_B = 0;
+      setLight(FSR_LEFT_FOOT, GAME_R, GAME_G, GAME_B);
+      delay(500);
+      // turn off
+      setLight(FSR_LEFT_FOOT, 0, 0, 0);
+      delay(100);
+    }
+    if (digitalRead(FSR_RIGHT_FOOT) == LOW){
+      gameInput.push_back(6);
+      // play tune 6
+      GAME_R = 0;
+      GAME_G = 0;
+      GAME_B = 255;
+      setLight(FSR_RIGHT_FOOT, GAME_R, GAME_G, GAME_B);
+      delay(500);
+      // turn off
+      setLight(FSR_RIGHT_FOOT, 0, 0, 0);
+      delay(100);
+    }
+    if (digitalRead(FSR_RIGHT_HAND)  == LOW){
+      gameInput.push_back(7);
+      // play tune 7
+      GAME_R = 255;
+      GAME_G = 255;
+      GAME_B = 0;
+      setLight(FSR_RIGHT_HAND, GAME_R, GAME_G, GAME_B);
+      delay(500);
+      // turn off
+      setLight(FSR_RIGHT_HAND, 0, 0, 0);
+      delay(100);
+    }
+    if (digitalRead(FSR_RIGHT_EAR)  == LOW) {
+      gameInput.push_back(8);
+      // play tune 8
+      GAME_R = 0;
+      GAME_G = 255;
+      GAME_B = 255;
+      setLight(FSR_RIGHT_EAR, GAME_R, GAME_G, GAME_B);
+      delay(500);
+      // turn off
+      setLight(FSR_RIGHT_EAR, 0, 0, 0);
+      delay(100);
+    }
+    if (digitalRead(FSR_LEFT_EAR)  == LOW) {
+      gameInput.push_back(9);
+      // play tune 9
+      GAME_R = 255;
+      GAME_G = 0;
+      GAME_B = 255;
+      setLight(FSR_LEFT_EAR, GAME_R, GAME_G, GAME_B);
+      delay(500);
+      // turn off
+      setLight(FSR_LEFT_EAR, 0, 0, 0);
+      delay(100);
+    }
+    
+    
+    // dont do anything while touching
+    while(my_touch_map != 0){
+      #ifdef DEBUG 
+       Serial.println("waiting to let go");
+       #endif
+      updateTouchMap();
+      delay(50);
+    }
+
+    i++;
+  }
+}
+
+void response(vector<byte> gameInput) {
+  // take input from the second user and compare
+  for (int j = 0, n = gameInput.size(); j < n ; j++){
+    
+    #ifdef DEBUG 
+     Serial.println("waiting for input");
+     #endif
+    unsigned long p2inputTime = millis();
+    
+    do{
+      updateTouchMap();
+      if((millis() - p2inputTime) >= TIMEOUT){
+        return;
+      }
+      delay(50);
+    }while(my_touch_map == 0);
+    
+    if(gameInput[j] == 4 && digitalRead(FSR_LEFT_HAND) != LOW) {
+      gameOver();
+      return;
+    }
+    if(gameInput[j] == 5 && digitalRead(FSR_LEFT_FOOT) != LOW) {
+      gameOver();
+      return;
+    }
+    if(gameInput[j] == 6 && digitalRead(FSR_RIGHT_FOOT) != LOW) {
+      gameOver();
+      return;
+    }
+    if(gameInput[j] == 7 && digitalRead(FSR_RIGHT_HAND) != LOW) {
+      gameOver();
+      return;
+    }
+    if(gameInput[j] == 8 && digitalRead(FSR_RIGHT_HAND) != LOW) {
+      gameOver();
+      return;
+    }
+    if(gameInput[j] == 9 && digitalRead(FSR_RIGHT_HAND) != LOW) {
+       gameOver();
+       return;
+    }
+    while(my_touch_map != 0){
+      #ifdef DEBUG 
+       Serial.println("waiting to let go");
+       #endif
+      updateTouchMap();
+      delay(50);
+    }
+  }
+  gameWon();
+}
+
+void initMasterGame(){
+  recordAndSendMoves();
+}
+
+void initSlaveGame(){
+  vector<byte> receivedMoves = waitToReceiveSequence();
+  response(receivedMoves);
 }
