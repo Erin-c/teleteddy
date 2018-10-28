@@ -1058,7 +1058,7 @@ void recordAndSendMoves(){
         sendSequence(gameInput);
       }
       delay(50);
-    }while(my_touch_map == 0);
+    }while( (my_touch_map & 0xFC) == 0);
     
     if (digitalRead(FSR_LEFT_HAND) == LOW){
       gameInput.push_back(4);
