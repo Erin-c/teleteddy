@@ -10,13 +10,13 @@
 using namespace std; 
 
 // for debugging`
-//#define DEBUG           1
+#define DEBUG           1
 
 // activate XBEE
 #define XBEE_ACTIVE     1
 
 // activate accelerometer
-#define ACC_ENABLE      1
+//#define ACC_ENABLE      1
 
 // activate speaker
 #define SPEAKER_ENABLE  1
@@ -99,9 +99,9 @@ uint8_t u8R, u8G, u8B;
 bool your_bear_pickup_flag = false;
 
 // XBee setup
-//#ifdef XBEE_ACTIVE
-//SoftwareSerial XBee(0, 1); // RX, TX
-//#endif
+#ifdef XBEE_ACTIVE
+SoftwareSerial XBee(0, 1); // RX, TX
+#endif
 
 Adafruit_NeoPixel pixels = Adafruit_NeoPixel(NUMPIXELS, PIN, NEO_GRB + NEO_KHZ800);
 #ifdef ACC_ENABLE
@@ -110,7 +110,8 @@ Adafruit_MMA8451 mma = Adafruit_MMA8451();
 /******************************************************************/
 /************************ SETUP ***********************************/
 /******************************************************************/
-  
+bool start_phase = true;
+
 void setup() {
   // setup serial port
   Serial.begin(9600);
@@ -132,9 +133,7 @@ void setup() {
 
   // accelerometer interupt setup
 #ifdef ACC_ENABLE
-  delay(500);
   pinMode(accIntPin, INPUT);
-  attachInterrupt(digitalPinToInterrupt(accIntPin), bearPickedUp, FALLING);
   
   // throw error if accelerometer not working
   if (! mma.begin()) {
@@ -148,7 +147,9 @@ void setup() {
   // enable accelerometer interrupt
   //setup acc
   setupAcc();
-  
+  delay(1000);
+  attachInterrupt(digitalPinToInterrupt(accIntPin), bearPickedUp, FALLING);
+
 #endif
 
   // function to call when want to do one cycle of the heartbeat
@@ -159,9 +160,14 @@ void setup() {
 /******************************************************************/
 /************************ LOOP ************************************/
 /******************************************************************/
-bool start_phase = true;
 
 void loop() {
+  // get rid of some start hardware funniness
+  if(start_phase){
+    delay(500);
+    picked_up = false;
+  }
+  
   if(isYourBearPickedUp() || receivedTouch()){
     unsigned long init_time = millis();
     while(true){
@@ -287,6 +293,7 @@ void dual_mode(){
   
       if(touchedTag(your_touch_map)){
         initMasterGame();
+        waitForSlave();
       }
 
       //time out if no touch activity on your bear
@@ -328,14 +335,25 @@ void sendSequence(vector<byte> sequence){
   byte sequence_size = sequence.size();
   byte sequence_array[sequence_size+1];
   sequence_array[0] = sequence_size;
-  
+//
+//  Serial.println("Will be sending");
+//  Serial.println(sequence_size);
   for(int i = 0; i < sequence_size; i++){
+    //Serial.println(sequence[i]);
     sequence_array[i+1] = sequence[i];
   }
-  Serial.write(sequence_array, sequence_size + 1);
+
+  delay(10000);
+  //Serial.write(sequence_array, sequence_size + 1);
 }
 
 bool touchedTag(byte touch_map){
+ 
+  // brute attempt to avoid any funniness
+  if(touch_map == 0xFF){
+    return false;
+  }
+  
   if( (touch_map &= MAP_TAG) == MAP_TAG){
     return true;
   }
@@ -357,6 +375,16 @@ void setupAcc(){
   mma.writeRegister8(MMA8451_REG_CTRL_REG1, 0x01 | 0x04);     // activate (hard coded)
 }
 #endif
+
+void waitForSlave(){
+  byte garbage = 0;
+  while(true){
+    if(Serial.available()){
+      Serial.readBytes(&garbage,1);
+      return;
+    }
+  }
+}
 
 void updateTouchMap(void) {
   my_touch_map = 0x00;
