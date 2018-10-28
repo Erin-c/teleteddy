@@ -170,6 +170,7 @@ void loop() {
       if(your_touch_map == 0xFF){
         your_touch_map = 0;
         dual_mode();
+        setLight(HEART_LED,   0, 0, 0);
       }
 
       
