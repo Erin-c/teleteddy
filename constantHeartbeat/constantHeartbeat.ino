@@ -195,73 +195,73 @@ void setup() {
 /******************************************************************/
 
 void loop() {
-  //heartbeatTouchableLights(50);
+  heartbeatTouchableLights(50);
 
-
-  if (isYourBearPickedUp() || receivedTouch()) {
-    unsigned long init_time = millis();
-    while (true) {
-
-      // this is a notification by your bear that you want to pair
-      if (your_touch_map == 0xFF) {
-        your_touch_map = 0;
-        dual_mode();
-        setLight(HEART_LED,   0, 0, 0);
-        playUnpairedTone();
-        break;
-      }
-
-
-      if ( (millis() - init_time) >= TIMEOUT_DUAL_MODE) {
-        break;
-      }
-
-      heartbeatTouchableLights(100);
-
-
-      // I touched the bear so that I can interact with the other bear
-      if ( my_touch_map != 0) {
-        Serial.write(0xFF); //tell other bear to enter dual mode!
-        dual_mode();
-        setLight(HEART_LED,   0, 0, 0);
-        playUnpairedTone();
-        break;
-      }
-    }
-  } else {
-
-    // check all touch sensors and update touch sensor variable (also checks and sends if picked up)
-    updateTouchMap();
-    // send info on what is being touched on this bear
-#ifdef XBEE_ACTIVE
-    sendTouchMap();
-#endif
-
-    //init single player game
-    if (touchedTag(my_touch_map)) {
-#ifdef SPEAKER_ENABLE
-      my_touch_map &= 0xFD;
-      playGameStartTone();
-      delay(500);
-#endif
-      simonGame();
-    }
-
-    // has my bear been lifted
-    if (isMyBearPickedUp()) {
-      sendBearPickedUp();
-      digitalWrite(13, HIGH);
-    } else {
-      digitalWrite(13, LOW);
-    }
-
-    // turn on LEDs that have been touched on my bear
-    turnOnMyTouched(my_touch_map);
-    // turn off LEDs that are not touched by my bear
-    turnOffMyNotTouched(my_touch_map);
-
-    delay(100);
-  }
+//
+//  if (isYourBearPickedUp() || receivedTouch()) {
+//    unsigned long init_time = millis();
+//    while (true) {
+//
+//      // this is a notification by your bear that you want to pair
+//      if (your_touch_map == 0xFF) {
+//        your_touch_map = 0;
+//        dual_mode();
+//        setLight(HEART_LED,   0, 0, 0);
+//        playUnpairedTone();
+//        break;
+//      }
+//
+//
+//      if ( (millis() - init_time) >= TIMEOUT_DUAL_MODE) {
+//        break;
+//      }
+//
+//      heartbeatTouchableLights(100);
+//
+//
+//      // I touched the bear so that I can interact with the other bear
+//      if ( my_touch_map != 0) {
+//        Serial.write(0xFF); //tell other bear to enter dual mode!
+//        dual_mode();
+//        setLight(HEART_LED,   0, 0, 0);
+//        playUnpairedTone();
+//        break;
+//      }
+//    }
+//  } else {
+//
+//    // check all touch sensors and update touch sensor variable (also checks and sends if picked up)
+//    updateTouchMap();
+//    // send info on what is being touched on this bear
+//#ifdef XBEE_ACTIVE
+//    sendTouchMap();
+//#endif
+//
+//    //init single player game
+//    if (touchedTag(my_touch_map)) {
+//#ifdef SPEAKER_ENABLE
+//      my_touch_map &= 0xFD;
+//      playGameStartTone();
+//      delay(500);
+//#endif
+//      simonGame();
+//    }
+//
+//    // has my bear been lifted
+//    if (isMyBearPickedUp()) {
+//      sendBearPickedUp();
+//      digitalWrite(13, HIGH);
+//    } else {
+//      digitalWrite(13, LOW);
+//    }
+//
+//    // turn on LEDs that have been touched on my bear
+//    turnOnMyTouched(my_touch_map);
+//    // turn off LEDs that are not touched by my bear
+//    turnOffMyNotTouched(my_touch_map);
+//
+//    delay(100);
+//  }
 
 
 //      // check all touch sensors and update touch sensor variable (also checks and sends if picked up)
