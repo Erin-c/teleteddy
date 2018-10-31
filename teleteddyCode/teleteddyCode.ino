@@ -104,7 +104,7 @@ using namespace std;
 #define COMBO_COLOR_G      69
 #define COMBO_COLOR_B      0
 
-#define TIMEOUT_DUAL_MODE  10000
+#define TIMEOUT_DUAL_MODE  30000
 #define INPUT_TIMEOUT      3000
 #define TIMEOUT_RESPONSE   5000
 
@@ -150,9 +150,9 @@ void setup() {
 
 
   //  // XBee setup
-//#ifdef XBEE_ACTIVE
-//  XBee.begin(9600);
-//#endif
+  //#ifdef XBEE_ACTIVE
+  //  XBee.begin(9600);
+  //#endif
 
   // start neo pixels
   pixels.begin(); // This initializes the NeoPixel library.
@@ -207,7 +207,7 @@ void loop() {
         your_touch_map = 0;
         dual_mode();
         setLight(HEART_LED,   0, 0, 0);
-        playUnpairedTone();
+        //playUnpairedTone();
         break;
       }
 
@@ -224,7 +224,7 @@ void loop() {
         Serial.write(0xFF); //tell other bear to enter dual mode!
         dual_mode();
         setLight(HEART_LED,   0, 0, 0);
-        playUnpairedTone();
+        //playUnpairedTone();
         break;
       }
     }
@@ -264,30 +264,30 @@ void loop() {
   }
 
 
-//      // check all touch sensors and update touch sensor variable (also checks and sends if picked up)
-//      updateTouchMap();
-//      // send info on what is being touched on this bear
-//      #ifdef XBEE_ACTIVE
-//      sendTouchMap();
-//      #endif
-//        // turn on LEDs that have been touched on my bear
-//      turnOnMyTouched(my_touch_map);
-//      // turn off LEDs that are not touched by my bear
-//      turnOffMyNotTouched(my_touch_map);
-//  
-//  
-//      #ifdef XBEE_ACTIVE
-//      if(receivedTouch()){
-//        //turn on LEDs that are touched by you
-//        turnOnYourTouched(your_touch_map);
-//        //turn off LEDs that you let go
-//        turnOffYourNotTouched(your_touch_map);
-//  
-//        if(touchedTag(&your_touch_map)){
-//          initSlaveGame();
-//        }
-//      #endif
-//      }
+  //      // check all touch sensors and update touch sensor variable (also checks and sends if picked up)
+  //      updateTouchMap();
+  //      // send info on what is being touched on this bear
+  //      #ifdef XBEE_ACTIVE
+  //      sendTouchMap();
+  //      #endif
+  //        // turn on LEDs that have been touched on my bear
+  //      turnOnMyTouched(my_touch_map);
+  //      // turn off LEDs that are not touched by my bear
+  //      turnOffMyNotTouched(my_touch_map);
+  //
+  //
+  //      #ifdef XBEE_ACTIVE
+  //      if(receivedTouch()){
+  //        //turn on LEDs that are touched by you
+  //        turnOnYourTouched(your_touch_map);
+  //        //turn off LEDs that you let go
+  //        turnOffYourNotTouched(your_touch_map);
+  //
+  //        if(touchedTag(&your_touch_map)){
+  //          initSlaveGame();
+  //        }
+  //      #endif
+  //      }
 }
 
 /******************************************************************/
@@ -308,6 +308,11 @@ int mel3[] = { A44, B4, A44, B4 };
 int m_len3 = 4;
 int noteDurations3[] = { 8, 16, 8, 16 };
 
+//game won
+int mel4[] = { B3, B4, C5};
+int m_len4 = 3;
+int noteDurations4[] = { 4, 3, 5 };
+
 //tone 1
 int tone1[] = { C2 };
 //tone 2
@@ -327,54 +332,54 @@ int t_len = 1;
 // Sound playback function
 void playSound(int melody[], int mel_length, int noteDurations[]) {
   for (int thisNote = 0; thisNote < mel_length; thisNote++) {
-    int noteDuration = 1000/noteDurations[thisNote];
+    int noteDuration = 1000 / noteDurations[thisNote];
     toneAC(melody[thisNote], 10, noteDuration, true);
     delay(noteDuration * 4 / 3);
   }
   noToneAC();
 }
 
-void playGameStartTone(){
-  playSound(mel1, m_len1, noteDurations1);  
+void playGameStartTone() {
+  playSound(mel1, m_len1, noteDurations1);
 }
 
-void playGameOverTone(){
+void playGameOverTone() {
   playSound(mel2, m_len2, noteDurations2);
 }
 
-void playPairedTone(){
-  playSound(mel3, m_len3, noteDurations3);  
+void playPairedTone() {
+  playSound(mel3, m_len3, noteDurations3);
 }
 
+void playWonTone() {
+  playSound(mel4, m_len4, noteDurations4);
+}
 
-void playUnpairedTone(){
-  playSound(tone1, t_len, t_ND);  
-  playSound(tone2, t_len, t_ND);
-  playSound(tone3, t_len, t_ND);  
-  playSound(tone4, t_len, t_ND);
-  playSound(tone5, t_len, t_ND);  
+void playUnpairedTone() {
   playSound(tone6, t_len, t_ND);
+  playSound(tone4, t_len, t_ND);
+  playSound(tone1, t_len, t_ND);
 }
 
-void playTone1(){
-  playSound(tone1, t_len, t_ND);  
+void playTone1() {
+  playSound(tone1, t_len, t_ND);
 }
-void playTone2(){
+void playTone2() {
   playSound(tone2, t_len, t_ND);
 }
-void playTone3(){
+void playTone3() {
   playSound(tone3, t_len, t_ND);
 }
-void playTone4(){
+void playTone4() {
   playSound(tone4, t_len, t_ND);
 }
-void playTone5(){
+void playTone5() {
   playSound(tone5, t_len, t_ND);
 }
-void playTone6(){
+void playTone6() {
   playSound(tone6, t_len, t_ND);
 }
-  
+
 void dual_mode() {
 #ifdef DEBUG
   Serial.println("paired");
@@ -416,13 +421,14 @@ void dual_mode() {
         Serial.println("slave mode");
 #endif
 #ifdef SPEAKER_ENABLE
-      playGameStartTone();
+        playGameStartTone();
 #endif
         initSlaveGame();
-        break;
+        turnOffYourNotTouched(0xFC);
         timeout_counter = millis();
+        break;
       }
-    }else if(touchedTag(my_touch_map)) {
+    } else if (touchedTag(my_touch_map)) {
       my_touch_map &= 0xFD;
 #ifdef DEBUG
       Serial.println("master mode");
@@ -431,14 +437,12 @@ void dual_mode() {
       playGameStartTone();
 #endif
       initMasterGame();
-      waitForSlave();
-      break;
+      turnOffYourNotTouched(0xFC);
       timeout_counter = millis();
-      
-      
+      break;
     }
     //time out if no touch activity on your bear
-    else if((millis() - timeout_counter) >= TIMEOUT_DUAL_MODE) {
+    else if ((millis() - timeout_counter) >= TIMEOUT_DUAL_MODE) {
       return;
     }
   }
@@ -450,7 +454,7 @@ vector<byte> waitToReceiveSequence() {
   while (numberOfBytesToReceive == 0) {
     if (Serial.available())
     { // If data comes in from XBee, send it out to serial monitor
-       Serial.readBytes(&numberOfBytesToReceive, 1);
+      Serial.readBytes(&numberOfBytesToReceive, 1);
     }
   }
 
@@ -460,7 +464,7 @@ vector<byte> waitToReceiveSequence() {
   {
     if (Serial.available() > 0)
     {
-      Serial.readBytes(&receivedSequence[bytes_read],1);
+      Serial.readBytes(&receivedSequence[bytes_read], 1);
       bytes_read ++;
     }
   }
@@ -488,7 +492,7 @@ void sendSequence(vector<byte> sequence) {
     sequence_array[i + 1] = sequence[i];
   }
 
-  delay(10000);
+  delay(2000);
   Serial.write(sequence_array, sequence_size + 1);
 }
 
@@ -522,11 +526,17 @@ void setupAcc() {
 #endif
 
 void waitForSlave() {
-  byte garbage = 0;
+  byte ack = 0;
   while (true) {
     if (Serial.available()) {
-      Serial.readBytes(&garbage, 1);
-      return;
+      Serial.readBytes(&ack, 1);
+      if (ack == 0xF4){
+        gameWon();
+        break;
+      }else if (ack == 0xF3){
+        gameOver();
+        break;
+      }
     }
   }
 }
@@ -1153,7 +1163,7 @@ void simonGame(void) {
 #endif
           // play tune 4
 #ifdef SPEAKER_ENABLE
-        playTone1();
+          playTone1();
 #endif
           //continue;
         }
@@ -1169,7 +1179,7 @@ void simonGame(void) {
 #endif
           // play tune 5
 #ifdef SPEAKER_ENABLE
-        playTone2();
+          playTone2();
 #endif
           //continue;
         }
@@ -1185,7 +1195,7 @@ void simonGame(void) {
 #endif
           // play tune 6
 #ifdef SPEAKER_ENABLE
-        playTone3();
+          playTone3();
 #endif
           //continue;
         }
@@ -1201,7 +1211,7 @@ void simonGame(void) {
 #endif
           // play tune 7
 #ifdef SPEAKER_ENABLE
-        playTone4();
+          playTone4();
 #endif
           //continue;
         }
@@ -1232,34 +1242,17 @@ void gameOver(void) {
   delay(100);
   playGameOverTone();
 #endif
-  pinMode(13, OUTPUT);
-  digitalWrite(13, HIGH);
-  delay(500);
-  digitalWrite(13, LOW);
 }
 
 void gameWon(void) {
   //play winning tune
-  playGameStartTone();
-  
-  pinMode(13, OUTPUT);
-  digitalWrite(13, HIGH);
-  delay(500);
-  digitalWrite(13, LOW);
+  playWonTone();
 }
 
 /* BearSeeBearDo */
 
 // initialize pattern to match
 void recordAndSendMoves() {
-  pinMode(13,HIGH);
-  delay(100);
-  pinMode(13,LOW);
-  delay(100);
-  pinMode(13,HIGH);
-  delay(100);
-  pinMode(13,LOW);
-  delay(100);
   uint16_t GAME_R = 0;
   uint16_t GAME_G = 0;
   uint16_t GAME_B = 0;
@@ -1270,16 +1263,18 @@ void recordAndSendMoves() {
   int i = 0;
   while (true) {
     p1inputTime = millis();
+
     // dont do anything while not touching
     do {
       updateTouchMap();
       if ((millis() - p1inputTime) >= INPUT_TIMEOUT) {
         sendSequence(gameInput);
+        return;
       }
       delay(50);
     } while ( (my_touch_map & 0xFC) == 0);
 
-    if (digitalRead(FSR_LEFT_HAND) == LOW) {
+    if ((my_touch_map & MAP_LEFT_HAND) == MAP_LEFT_HAND) {
       gameInput.push_back(4);
       // play tune 4
       GAME_R = 255;
@@ -1293,7 +1288,7 @@ void recordAndSendMoves() {
       delay(100);
 
     }
-    if (digitalRead(FSR_LEFT_FOOT) == LOW) {
+    if ((my_touch_map & MAP_LEFT_FOOT) == MAP_LEFT_FOOT) {
       gameInput.push_back(5);
       // play tune 5
       GAME_R = 0;
@@ -1306,7 +1301,7 @@ void recordAndSendMoves() {
       setLight(LEFT_FOOT_LED, 0, 0, 0);
       delay(100);
     }
-    if (digitalRead(FSR_RIGHT_FOOT) == LOW) {
+    if ((my_touch_map & MAP_RIGHT_FOOT) == MAP_RIGHT_HAND) {
       gameInput.push_back(6);
       // play tune 6
       GAME_R = 0;
@@ -1319,7 +1314,7 @@ void recordAndSendMoves() {
       setLight(RIGHT_FOOT_LED, 0, 0, 0);
       delay(100);
     }
-    if (digitalRead(FSR_RIGHT_HAND)  == LOW) {
+    if ((my_touch_map & MAP_RIGHT_HAND) == MAP_RIGHT_HAND) {
       gameInput.push_back(7);
       // play tune 7
       GAME_R = 255;
@@ -1332,7 +1327,7 @@ void recordAndSendMoves() {
       setLight(RIGHT_HAND_LED, 0, 0, 0);
       delay(100);
     }
-    if (digitalRead(FSR_RIGHT_EAR)  == LOW) {
+    if ((my_touch_map & MAP_RIGHT_EAR) == MAP_RIGHT_EAR) {
       gameInput.push_back(8);
       // play tune 8
       GAME_R = 0;
@@ -1345,7 +1340,7 @@ void recordAndSendMoves() {
       setLight(RIGHT_EAR_LED, 0, 0, 0);
       delay(100);
     }
-    if (digitalRead(FSR_LEFT_EAR)  == LOW) {
+    if ((my_touch_map & MAP_LEFT_EAR) == MAP_LEFT_EAR) {
       gameInput.push_back(9);
       // play tune 9
       GAME_R = 255;
@@ -1373,12 +1368,13 @@ void recordAndSendMoves() {
   }
 }
 
-void showReceived(vector<byte> gameInput){
+void showReceived(vector<byte> gameInput) {
   uint16_t GAME_R = 255;
   uint16_t GAME_G = 0;
   uint16_t GAME_B = 0;
-      
-  for (int j = 0, n = gameInput.size(); j < n ; j++){
+
+  for (int j = 0, n = gameInput.size(); j < n ; j++) {
+
     if (gameInput[j] == 4) {
       // play tune 4
       GAME_R = 255;
@@ -1456,7 +1452,7 @@ void showReceived(vector<byte> gameInput){
 
 void response(vector<byte> gameInput) {
   // take input from the second user and compare
-  for (int j = 0, n = gameInput.size(); j < n ; j++) {
+  for (int j = 0, n = gameInput.size(); j < (n - 1) ; j++) {
 
 #ifdef DEBUG
     Serial.println("waiting for input");
@@ -1471,36 +1467,43 @@ void response(vector<byte> gameInput) {
       delay(50);
     } while ( (my_touch_map & 0xFC) == 0);
 
-    // turn on LEDs that have been touched on my bear
-    turnOnMyTouched(my_touch_map);
+    playSound();
     // turn off LEDs that are not touched by my bear
     turnOffMyNotTouched(my_touch_map);
+
     delay(100);
 
-    if (gameInput[j] == 4 && ((my_touch_map & MAP_LEFT_HAND) == MAP_LEFT_HAND) ) {
+    if (gameInput[j] == 4 && ((my_touch_map & MAP_LEFT_HAND) != MAP_LEFT_HAND) ) {
       gameOver();
+      Serial.write(0xF3); //notify that game lost
       return;
     }
-    else if (gameInput[j] == 5  && ((my_touch_map & MAP_LEFT_FOOT) == MAP_LEFT_FOOT) ) {
+    else if (gameInput[j] == 5  && ((my_touch_map & MAP_LEFT_FOOT) != MAP_LEFT_FOOT) ) {
       gameOver();
+      Serial.write(0xF3); //notify that game lost
       return;
     }
-    else if (gameInput[j] == 6  && ((my_touch_map & MAP_RIGHT_FOOT) == MAP_RIGHT_FOOT) ) {
+    else if (gameInput[j] == 6  && ((my_touch_map & MAP_RIGHT_FOOT) != MAP_RIGHT_FOOT) ) {
       gameOver();
+      Serial.write(0xF3); //notify that game lost
       return;
     }
-    else if (gameInput[j] == 7  && ((my_touch_map & MAP_RIGHT_HAND) == MAP_RIGHT_HAND) ) {
+    else if (gameInput[j] == 7  && ((my_touch_map & MAP_RIGHT_HAND) != MAP_RIGHT_HAND) ) {
       gameOver();
+      Serial.write(0xF3); //notify that game lost
       return;
     }
-    else if (gameInput[j] == 8  && ((my_touch_map & MAP_RIGHT_EAR) == MAP_RIGHT_EAR) ) {
+    else if (gameInput[j] == 8  && ((my_touch_map & MAP_RIGHT_EAR) != MAP_RIGHT_EAR) ) {
       gameOver();
+      Serial.write(0xF3); //notify that game lost
       return;
     }
-    else if (gameInput[j] == 9  && ((my_touch_map & MAP_LEFT_EAR) == MAP_LEFT_EAR) ) {
+    else if (gameInput[j] == 9  && ((my_touch_map & MAP_LEFT_EAR) != MAP_LEFT_EAR) ) {
       gameOver();
+      Serial.write(0xF3); //notify that game lost
       return;
     }
+
     while ( (my_touch_map & 0xFC) != 0) {
 #ifdef DEBUG
       Serial.println("waiting to let go");
@@ -1509,21 +1512,79 @@ void response(vector<byte> gameInput) {
       delay(50);
     }
 
-    // turn on LEDs that have been touched on my bear
-    turnOnMyTouched(my_touch_map);
+    playSound();
     // turn off LEDs that are not touched by my bear
     turnOffMyNotTouched(my_touch_map);
-    delay(1000);
+    delay(700);
   }
+  
   gameWon();
+  Serial.write(0xF4); //notify that game won
 }
 
 void initMasterGame() {
   recordAndSendMoves();
+  waitForSlave();
 }
 
 void initSlaveGame() {
   vector<byte> receivedMoves = waitToReceiveSequence();
   showReceived(receivedMoves);
   response(receivedMoves);
+}
+
+void playSound() {
+
+  uint16_t GAME_R = 255;
+  uint16_t GAME_G = 0;
+  uint16_t GAME_B = 0;
+
+  if ((my_touch_map & MAP_LEFT_HAND) == MAP_LEFT_HAND) {
+    // play tune 4
+    GAME_R = 255;
+    GAME_G = 0;
+    GAME_B = 0;
+    playTone1();
+    setLight(LEFT_HAND_LED, GAME_R, GAME_G, GAME_B);
+  }
+  else if ((my_touch_map & MAP_LEFT_FOOT) == MAP_LEFT_FOOT) {
+    // play tune 5
+    GAME_R = 0;
+    GAME_G = 255;
+    GAME_B = 0;
+    playTone2();
+    setLight(LEFT_FOOT_LED, GAME_R, GAME_G, GAME_B);
+  }
+  else if ((my_touch_map & MAP_RIGHT_FOOT) == MAP_RIGHT_FOOT) {
+    // play tune 6
+    GAME_R = 0;
+    GAME_G = 0;
+    GAME_B = 255;
+    playTone3();
+    setLight(RIGHT_FOOT_LED, GAME_R, GAME_G, GAME_B);
+  }
+  else if ((my_touch_map & MAP_RIGHT_HAND) == MAP_RIGHT_HAND) {
+    // play tune 7
+    GAME_R = 255;
+    GAME_G = 255;
+    GAME_B = 0;
+    playTone4();
+    setLight(RIGHT_HAND_LED, GAME_R, GAME_G, GAME_B);
+  }
+  else if ((my_touch_map & MAP_RIGHT_EAR) == MAP_RIGHT_EAR) {
+    // play tune 8
+    GAME_R = 0;
+    GAME_G = 255;
+    GAME_B = 255;
+    playTone5();
+    setLight(RIGHT_EAR_LED, GAME_R, GAME_G, GAME_B);
+  }
+  else if ((my_touch_map & MAP_LEFT_EAR) == MAP_LEFT_EAR) {
+    // play tune 9
+    GAME_R = 255;
+    GAME_G = 0;
+    GAME_B = 255;
+    playTone6();
+    setLight(LEFT_EAR_LED, GAME_R, GAME_G, GAME_B);
+  }
 }
